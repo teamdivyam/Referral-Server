@@ -1,0 +1,26 @@
+Admin
+    - Allot refer codes to agent
+    - Approved / Reject withdrawal request of agent
+    - Get agents (20 agent per page)
+    - Get agent using id 
+    - Get agent using search
+
+
+Agent
+    - Me (get all information about agent)
+    - Get notifications (15 per page)
+    - Update profile
+    - Add bank details
+    - Set bank account primary
+    - Get withdrawal history
+    - Mark notification read
+
+
+Wallet
+    - Get withdrawal history 
+    - Request withdrawal
+
+
+Referral
+    - Get agent referrals
+    - Change referral status from active to pending
