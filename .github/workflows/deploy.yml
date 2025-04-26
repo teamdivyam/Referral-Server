@@ -58,6 +58,9 @@ jobs:
               echo 'Docker is already installed.'
             fi
 
+            # Enable super user
+            sudo su
+
             # 4. Stop and remove previous container (if any)
             docker stop my-app || true
             docker rm my-app || true
