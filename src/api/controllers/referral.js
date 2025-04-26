@@ -19,6 +19,7 @@ import {
   usedReferrals,
   latestReferrals,
 } from "../service/referral.js";
+import logger from "../../config/logger.js";
 
 const ReferralController = {
   // 20 referral per page
@@ -60,7 +61,7 @@ const ReferralController = {
       });
 
     } catch (error) {
-      console.log("Error in get agent referrals:", error);
+      logger.error(`Failed to get agent referrals: ${error.message}, Error stack: ${error.stack}`);
 
       return next(
         createHttpError(ErrorStatusCode.SERVER_DATABASE_ERROR, {
@@ -168,7 +169,7 @@ const ReferralController = {
         message: "Referral status updated successfully",
       });
     } catch (error) {
-      console.log("Error in changing referral status to pending:", error);
+      logger.error(`Failed to change referral status: ${error.message}, Error stack: ${error.stack}`);
 
       await session.abortTransaction(); // ❌ Abort transaction (rollback changes)
       session.endSession(); // End session

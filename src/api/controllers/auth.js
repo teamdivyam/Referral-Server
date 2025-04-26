@@ -17,7 +17,6 @@ import { generateTokensAndSetCookies } from "../../config/passport.js";
 class AuthController {
   async login(req, res, next) {
     const { email, password } = req.body;
-    console.log("User ip:", req.headers.origin);
 
     // Validate email and password
     const { error } = loginValidationSchema.validate({

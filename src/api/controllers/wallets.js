@@ -4,7 +4,7 @@ import {
   SuccessStatusCode,
   ErrorStatusCode,
   ErrorCodes,
-  MINIMUM_WITHDRAWAL_AMOUNT
+  MINIMUM_WITHDRAWAL_AMOUNT,
 } from "../../utils/constant.js";
 import WithdrawalModel from "../../db/models/withdrawal.js";
 import mongoose from "mongoose";
@@ -22,7 +22,10 @@ const WalletController = {
         withdrawalHistory: agent.wallet.withdrawalHistory,
       });
     } catch (error) {
-      console.log(error);
+      logger.error(
+        `Failed to get withdrawal history: ${error.message}, Error stack: ${error.stack}`
+      );
+      
       return next(
         createHttpError(ErrorStatusCode.SERVER_DATABASE_ERROR, {
           code: ErrorCodes.SERVER_DATABASE_ERROR,
@@ -31,9 +34,6 @@ const WalletController = {
       );
     }
   },
-
-  // GET: Get earning, pending commissions, total withdrawals
-  async summary(req, res, next) {},
 
   // POST: Request a withdraw
   async requestWithdrawal(req, res, next) {
@@ -47,7 +47,9 @@ const WalletController = {
 
       // Minium withdrawal amount check up
       if (agent.wallet.balance < MINIMUM_WITHDRAWAL_AMOUNT) {
-        console.log("Request withdrawal amount should be equal or above minimum withdrawal amount");
+        console.log(
+          "Request withdrawal amount should be equal or above minimum withdrawal amount"
+        );
 
         await session.abortTransaction();
         session.endSession();
@@ -55,7 +57,8 @@ const WalletController = {
         return next(
           createHttpError(ErrorStatusCode.INSUFFECIENT_BALANCE, {
             code: ErrorCodes.INSUFFECIENT_BALANCE,
-            message: "Request withdrawal amount should be equal or above minimum withdrawal amount",
+            message:
+              "Request withdrawal amount should be equal or above minimum withdrawal amount",
           })
         );
       }
@@ -85,7 +88,7 @@ const WalletController = {
       const notification = new NotificationModel({
         agentId: agent._id,
         type: "WITHDRAWAL",
-        message: NotificationTemplate.WALLET.WITHDRAWAL_REQUESTED(amount)
+        message: NotificationTemplate.WALLET.WITHDRAWAL_REQUESTED(amount),
       });
 
       // Push to withdrawal history
@@ -109,13 +112,13 @@ const WalletController = {
         message: "Withdrawal request created successfully",
       });
     } catch (error) {
-      console.log("Error in request withdrawal:", error);
+      logger.error(`Failed to request withdrawal: ${error.message}, Error stack: ${error.stack}`);
 
       await session.abortTransaction();
       session.endSession();
 
       return next(
-      createHttpError(ErrorStatusCode.SERVER_DATABASE_ERROR, {
+        createHttpError(ErrorStatusCode.SERVER_DATABASE_ERROR, {
           code: ErrorCodes.SERVER_DATABASE_ERROR,
           message: "Internal Server Error",
         })

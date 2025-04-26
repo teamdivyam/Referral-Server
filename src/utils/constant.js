@@ -15,6 +15,8 @@ export const MINIMUM_WITHDRAWAL_AMOUNT = 5000;
 
 export const REWARD_AMOUNT = 2500;
 
+export const NOTIFICATION_PER_PAGE = 15;
+
 // export const EXPIRATION_DATE_ON_REFERRAL = 
 
 export const SuccessCodes = {
