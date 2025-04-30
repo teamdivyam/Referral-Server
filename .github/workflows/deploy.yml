@@ -45,7 +45,7 @@ jobs:
           echo "$PRIVATE_KEY" > key.pem
           chmod 600 key.pem
 
-          ssh StrictHostKeyChecking=no -i key.pem ${USER}@${HOST} <<'EOF'
+          ssh -o StrictHostKeyChecking=no -i key.pem ${USER}@${HOST} << 'EOF'
             echo "✅ Connected to EC2"
 
             # Ensure Docker is installed
@@ -80,4 +80,4 @@ jobs:
             # Confirm container is running
             sleep 10
             docker ps | grep referral || { echo 'Container not running'; exit 1; }
-            EOF
+          EOF
