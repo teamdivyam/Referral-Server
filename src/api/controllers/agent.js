@@ -16,7 +16,7 @@ import {
     markNotificationReadService,
     notificationService,
 } from "../service/notification.js";
-import logger from "../../config/logger.js";
+import logger from "../../logging/index.js";
 import { withdrawalHistoryService } from "../service/agent.js";
 
 class AgentController {

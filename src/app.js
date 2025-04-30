@@ -10,7 +10,7 @@ import globalErrorHandler from "./api/middlewares/ErrorHandler.js";
 import passport, { refreshTokenMiddleware } from "./config/passport.js";
 import AdminRouter from "./api/routes/admin.js";
 import { requireAuth } from "./config/passport.js";
-import logger from "./logs/index.js";
+import logger from "./logging/index.js";
 
 const app = express();
 

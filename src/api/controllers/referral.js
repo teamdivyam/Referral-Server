@@ -19,7 +19,7 @@ import {
   usedReferrals,
   latestReferrals,
 } from "../service/referral.js";
-import logger from "../../config/logger.js";
+import logger from "../../logging/index.js";
 
 const ReferralController = {
   // 20 referral per page

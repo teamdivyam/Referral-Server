@@ -9,7 +9,7 @@ import {
   ErrorStatusCode,
   SuccessStatusCode,
 } from "../../utils/constant.js";
-import logger from "../../config/logger.js";
+import logger from "../../logging/index.js";
 import { hashPasswordFn, comparePassword } from "../../utils/password.js";
 import AgentModel from "../../db/models/agent.js";
 import { generateTokensAndSetCookies } from "../../config/passport.js";

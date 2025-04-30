@@ -12,7 +12,7 @@ import {
 } from "../../utils/constant.js";
 import NotificationTemplate from "../../utils/notificationTemplate.js";
 import WithdrawalModel from "../../db/models/withdrawal.js";
-import logger from "../../config/logger.js";
+import logger from "../../logging/index.js";
 import {
     getAgentsService,
     findAgentUsingIdService,
