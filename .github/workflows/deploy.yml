@@ -45,7 +45,7 @@ jobs:
           chmod 600 deploy-key.pem
 
           # 2. Connect to EC2 and deploy with all variables explicitly passed
-          ssh -o ConnectTimeout=30 -o StrictHostKeyChecking=no -i deploy-key.pem ${USER}@${HOST} "
+          ssh -o StrictHostKeyChecking=no -i deploy-key.pem ${USER}@${HOST} "
             # 3. Install Docker if not available
             if ! command -v docker &> /dev/null; then
               echo 'Installing Docker...'
