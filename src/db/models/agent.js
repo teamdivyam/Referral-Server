@@ -175,6 +175,6 @@ const AgentSchema = new mongoose.Schema(
 
 
 // Create models
-const AgentModel = mongoose.model("Agent", AgentSchema);
+const AgentModel = mongoose.model("ReferralAgent", AgentSchema);
 
 export default AgentModel;

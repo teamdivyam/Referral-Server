@@ -27,6 +27,6 @@ const NotificationSchema = new mongoose.Schema(
   }
 );
 
-const NotificationModel = mongoose.model("Notification", NotificationSchema);
+const NotificationModel = mongoose.model("ReferralNotification", NotificationSchema);
 
 export default NotificationModel;

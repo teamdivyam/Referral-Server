@@ -74,7 +74,7 @@ jobs:
               --name referral \
               --restart unless-stopped \
               --env-file /home/${USER}/prod.env \
-              -d --network mongo-net \
+              --network mongo-net \
               -p 3000:3000 \
               '$DOCKER_IMAGE' || { echo 'Container failed to start'; exit 1; }
 

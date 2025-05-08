@@ -54,6 +54,6 @@ const WithdrawalSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
-const WithdrawalModel = mongoose.model("Withdrawal", WithdrawalSchema);
+const WithdrawalModel = mongoose.model("ReferralWithdrawal", WithdrawalSchema);
 
 export default WithdrawalModel;

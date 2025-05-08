@@ -1,5 +1,6 @@
 import express from "express";
 import AdminController from "../controllers/admin.js";
+import AdminAuthController from "../controllers/adminAuth.js";
 
 const AdminRouter = express.Router();
 
@@ -11,7 +12,6 @@ AdminRouter.get("/agent/search", AdminController.getAgentUsingSearch);
 
 /** --------------------POST--------------------- */
 AdminRouter.post("/allot-refer-code", AdminController.allotReferCodes);
-
 
 
 /** --------------------PUT--------------------- */
