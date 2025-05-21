@@ -45,7 +45,7 @@ jobs:
           echo "$PRIVATE_KEY" > key.pem
           chmod 600 key.pem
 
-          ssh -o StrictHostKeyChecking=no -i key.pem ${USER}@${HOST} << EOF
+          ssh -t StrictHostKeyChecking=no -i key.pem ${USER}@${HOST} << EOF
             echo "✅ Connected to EC2"
 
             # Ensure Docker is installed
