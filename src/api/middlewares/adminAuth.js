@@ -1,12 +1,12 @@
 import createHttpError from "http-errors";
 import jwt from "jsonwebtoken";
-import AdminModel from "../db/models/admin.js";
-import logger from "../logging/index.js";
+import AdminModel from "../../db/models/admin.js";
+import logger from "../../logging/index.js";
 import {
     ACCESS_TOKEN_SECRET,
     ErrorCodes,
     ErrorStatusCode,
-} from "../utils/constant.js";
+} from "../../utils/constant.js";
 
 const adminAuth = async (req, res, next) => {
     try {

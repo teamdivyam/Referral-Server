@@ -1,6 +1,21 @@
 import AgentModel from "../../db/models/agent.js";
 import NotificationModel from "../../db/models/notification.js";
 
+
+export const createNotification = async ({agentId, message, type, session}) => {
+    try {
+        const newNotification = await NotificationModel.insertOne({
+            agentId,
+            message, 
+            type
+        }, { session });
+
+        return newNotification;
+    } catch (error) {
+        throw Error(error);
+    }
+}
+
 export const notificationService = async (agentId, skip, limit) => {
     try {
         const notifications = await AgentModel.findById(agentId)

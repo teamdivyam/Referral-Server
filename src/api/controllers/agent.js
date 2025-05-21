@@ -18,8 +18,18 @@ import {
 } from "../service/notification.js";
 import logger from "../../logging/index.js";
 import { withdrawalHistoryService } from "../service/agent.js";
+import {
+    activeReferrals,
+    countLatestReferrals,
+    countActiveReferrals,
+    countPendingReferrals,
+    countUsedReferrals,
+    pendingReferrals,
+    usedReferrals,
+    latestReferrals,
+} from "../service/referral.js";
 
-class AgentController {
+const AgentController = {
     async me(req, res, next) {
         const {
             // Agent basic info
@@ -83,7 +93,57 @@ class AgentController {
                 })
             );
         }
-    }
+    },
+
+    async getAgentReferrals(req, res, next) {
+        try {
+            const limit = parseInt(req.query.limit) || 20;
+            const page = parseInt(req.query.page) || 1;
+            const status = req.query["refer-code-status"] || "latest";
+            const skip = (page - 1) * limit;
+
+            let agent;
+            let total;
+
+            switch (status) {
+                case "latest":
+                    agent = await latestReferrals(req, skip, limit);
+                    total = await countLatestReferrals(req);
+                    break;
+
+                case "active":
+                    agent = await activeReferrals(req, skip, limit);
+                    total = await countActiveReferrals(req);
+                    break;
+
+                case "pending":
+                    agent = await pendingReferrals(req, skip, limit);
+                    total = await countPendingReferrals(req);
+                    break;
+
+                case "used":
+                    agent = await usedReferrals(req, skip, limit);
+                    total = await countUsedReferrals(req);
+                    break;
+            }
+
+            return res.status(SuccessStatusCode.RESOURCE_CREATED).json({
+                agent,
+                total,
+            });
+        } catch (error) {
+            logger.error(
+                `Failed to get agent referrals: ${error.message}, Error stack: ${error.stack}`
+            );
+
+            return next(
+                createHttpError(ErrorStatusCode.SERVER_DATABASE_ERROR, {
+                    code: ErrorCodes.SERVER_DATABASE_ERROR,
+                    message: "Internal Server Error",
+                })
+            );
+        }
+    },
 
     async getNotifications(req, res, next) {
         try {
@@ -114,7 +174,7 @@ class AgentController {
                 })
             );
         }
-    }
+    },
 
     async updateProfile(req, res, next) {
         try {
@@ -165,7 +225,7 @@ class AgentController {
                 })
             );
         }
-    }
+    },
 
     async addBankDetails(req, res, next) {
         const session = await mongoose.startSession();
@@ -230,7 +290,7 @@ class AgentController {
                 })
             );
         }
-    }
+    },
 
     async setBankAccountPrimary(req, res, next) {
         try {
@@ -260,7 +320,7 @@ class AgentController {
                 })
             );
         }
-    }
+    },
 
     async getWithdrawalHistory(req, res, next) {
         try {
@@ -281,7 +341,7 @@ class AgentController {
                 })
             );
         }
-    }
+    },
 
     async markNotificationRead(req, res, next) {
         try {
@@ -304,7 +364,7 @@ class AgentController {
                 })
             );
         }
-    }
-}
+    },
+};
 
-export default new AgentController();
+export default AgentController;

@@ -11,7 +11,7 @@ import passport, { refreshTokenMiddleware } from "./config/passport.js";
 import AdminRouter from "./api/routes/admin.js";
 import { requireAuth } from "./config/passport.js";
 import logger from "./logging/index.js";
-import adminAuth from "./middleware/adminAuth.js";
+import adminAuth from "./api/middlewares/adminAuth.js";
 
 const app = express();
 
@@ -47,7 +47,7 @@ app.use((req, res, next) => {
 // Routers
 app.use("/api/referral-system/auth", AuthRouter);
 app.use("/api/referral-system/agent", requireAuth, AgentRouter);
-app.use("/api/referral-system/referral", requireAuth, ReferralRouter);
+app.use("/api/referral-system/referral", ReferralRouter);
 app.use("/api/referral-system/admin", adminAuth, AdminRouter);
 app.post("/api/referral-system/refresh-token", refreshTokenMiddleware);
 

@@ -33,8 +33,8 @@ export const findAgentUsingIdService = async (agentId) => {
         const agent = await AgentModel.findById(agentId)
             .select(
                 `name email phoneNumber wallet.totalEarningAmount 
-                wallet.totalWithdrawalAmount wallet.currentWithdrawalAmount 
-                wallet.pendingBalance referral.active referral.used createdAt`
+                wallet.totalEarningAmount wallet.pendingWithdrawalAmount 
+                wallet.balance wallet.pendingBalance referral.active referral.pending referral.used createdAt`
             )
             .populate({
                 path: "referral.used",

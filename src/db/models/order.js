@@ -82,11 +82,11 @@ const orderSchema = new mongoose.Schema(
     { timestamps: true }
 );
 
-orderSchema.index({ orderId: 1 });
-orderSchema.index({ customer: 1 });
-orderSchema.index({ orderStatus: 1 });
-orderSchema.index({ pincode: 1 });
-orderSchema.index({ "payment.status": 1 });
+// orderSchema.index({ orderId: 1 });
+// orderSchema.index({ customer: 1 });
+// orderSchema.index({ orderStatus: 1 });
+// orderSchema.index({ pincode: 1 });
+// orderSchema.index({ "payment.status": 1 });
 
 const OrderModel = mongoose.model("Order", orderSchema);
 export default OrderModel;

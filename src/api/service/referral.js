@@ -135,3 +135,13 @@ export const countUsedReferrals = async (req) => {
     throw error;
   }
 };
+
+export const getReferralDocUsingReferralCode = async (referralCode) => {
+  try {
+    const referral = await ReferralModel.findOne({ referralCode });
+
+    return referral;
+  } catch (error) {
+    throw Error;
+  }
+}

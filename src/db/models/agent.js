@@ -1,6 +1,7 @@
 // User schema with basic information
 import mongoose from "mongoose";
 
+
 // Address schema (embedded in User)
 const AddressSchema = new mongoose.Schema(
   {
@@ -84,7 +85,6 @@ const AgentSchema = new mongoose.Schema(
       type: String,
       unique: true,
       sparse: true,
-      default: null,
     },
     passwordHash: {
       type: String,
@@ -143,7 +143,7 @@ const AgentSchema = new mongoose.Schema(
       withdrawalHistory: [
         {
           type: mongoose.Schema.Types.ObjectId,
-          ref: "Withdrawal",
+          ref: "ReferralWithdrawal",
           default: [],
         },
       ],
@@ -162,13 +162,19 @@ const AgentSchema = new mongoose.Schema(
     notifications: [
       {
         type: mongoose.Schema.Types.ObjectId,
-        ref: "Notification",
+        ref: "ReferralNotification",
         default: [],
       },
     ],
+
+    accountStatus: {
+      type: String,
+      enum: ["activate", "deactivate"],
+      default: "activate"
+    }
   },
   {
-    timestamp: true,
+    timestamps: true,
     versionKey: false,
   }
 );

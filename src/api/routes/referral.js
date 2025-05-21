@@ -3,21 +3,14 @@ import ReferralController from "../controllers/referral.js";
 
 const ReferralRouter = express.Router();
 
-// GET
-ReferralRouter.get("/agent-referrals", ReferralController.getAgentReferrals);
+ReferralRouter.put(
+    "/change-referral-status-pending",
+    ReferralController.changeReferralStatusPending
+);
 
-
-// POST
-
-
-// PUT
-ReferralRouter.put("/change-referral-status-pending", ReferralController.changeReferralStatusPending);
-
-
-
-// DELETE
-ReferralRouter.delete("/", ReferralController.delete);
-
-
+ReferralRouter.get(
+    "/verify/:referralCode",
+    ReferralController.verifyReferralCode
+);
 
 export default ReferralRouter;
