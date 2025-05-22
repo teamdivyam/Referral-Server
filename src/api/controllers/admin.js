@@ -107,18 +107,12 @@ const AdminController = {
     },
 
     async assignReferralCode(req, res, next) {
-        const session = await mongoose.startSession();
-        session.startTransaction();
-
         try {
             const { agentId } = req.params;
             const { quantity } = req.body;
 
             const agent = await AgentModel.findById(agentId);
             if (!agent) {
-                await session.abortTransaction();
-                session.endSession();
-
                 return next(
                     createHttpError(ErrorStatusCode.RESOURCE_NOT_FOUND, {
                         code: ErrorCodes.RESOURCE_NOT_FOUND,
@@ -137,23 +131,18 @@ const AdminController = {
             );
 
             const referralCodeLists = await ReferralModel.insertMany(
-                referralList,
-                { session }
+                referralList
             );
 
             const idReferralCodesLists = referralCodeLists.map(
                 (referral) => referral._id
             );
 
-            const newNotification = await NotificationModel.insertOne(
-                {
-                    agentId,
-                    message:
-                        NotificationTemplate.REFERRAL_CODE_ALLOTED(quantity),
-                    type: "REFERRAL_CODE_ALLOTED",
-                },
-                { session }
-            );
+            const newNotification = await NotificationModel.insertOne({
+                agentId,
+                message: NotificationTemplate.REFERRAL_CODE_ALLOTED(quantity),
+                type: "REFERRAL_CODE_ALLOTED",
+            });
 
             await AgentModel.findOneAndUpdate(
                 { _id: agentId },
@@ -162,14 +151,8 @@ const AdminController = {
                         "referral.active": { $each: idReferralCodesLists },
                         notifications: newNotification._id,
                     },
-                },
-                {
-                    session,
                 }
             );
-
-            await session.commitTransaction();
-            session.endSession();
 
             return res.status(SuccessStatusCode.RESOURCE_CREATED).json({
                 success: true,
@@ -179,9 +162,6 @@ const AdminController = {
             logger.error(
                 `Failed to allot refer code: ${error.message}, Error stack: ${error.stack}`
             );
-
-            await session.abortTransaction();
-            session.endSession();
 
             return next(
                 createHttpError(ErrorStatusCode.SERVER_DATABASE_ERROR, {
