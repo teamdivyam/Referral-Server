@@ -7,7 +7,7 @@ const WithdrawalSchema = new mongoose.Schema(
     // Reference to the agent who requested the withdrawal.
     agentId: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: "referralagents",
+      ref: "ReferralAgent",
       required: true,
     },
 

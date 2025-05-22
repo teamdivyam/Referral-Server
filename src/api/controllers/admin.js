@@ -25,6 +25,8 @@ import {
     updateAgentReferralAndNotification,
 } from "../service/admin.js";
 import { createNotification } from "../service/notification.js";
+import ReferralModel from "../../db/models/referral.js";
+import NotificationModel from "../../db/models/notification.js";
 
 const AdminController = {
     async getAgents(req, res, next) {
@@ -112,7 +114,7 @@ const AdminController = {
             const { agentId } = req.params;
             const { quantity } = req.body;
 
-            const agent = await findAgentById(agentId);
+            const agent = await AgentModel.findById(agentId);
             if (!agent) {
                 await session.abortTransaction();
                 session.endSession();
@@ -134,27 +136,37 @@ const AdminController = {
                 })
             );
 
-            const insertedReferralCodes = await insertReferralCodesToAgent(
+            const referralCodeLists = await ReferralModel.insertMany(
                 referralList,
-                session
+                { session }
             );
 
-            const referralIdFromInsertedReferralCodes =
-                insertedReferralCodes.map((referral) => referral._id);
+            const idReferralCodesLists = referralCodeLists.map(
+                (referral) => referral._id
+            );
 
-            const assignReferralCodeNotifcation = await createNotification({
-                agentId: agent._id,
-                message: NotificationTemplate.REFERRAL_CODE_ALLOTED(quantity),
-                type: "REFERRAL_CODE_ALLOTED",
-                session,
-            });
+            const newNotification = await NotificationModel.insertOne(
+                {
+                    agentId,
+                    message:
+                        NotificationTemplate.REFERRAL_CODE_ALLOTED(quantity),
+                    type: "REFERRAL_CODE_ALLOTED",
+                },
+                { session }
+            );
 
-            await updateAgentReferralAndNotification({
-                agentId,
-                referralIdFromInsertedReferralCodes,
-                assignReferralCodeNotifcation,
-                session,
-            });
+            await AgentModel.findOneAndUpdate(
+                { _id: agentId },
+                {
+                    $push: {
+                        "referral.active": { $each: idReferralCodesLists },
+                        notifications: newNotification._id,
+                    },
+                },
+                {
+                    session,
+                }
+            );
 
             await session.commitTransaction();
             session.endSession();
@@ -179,6 +191,81 @@ const AdminController = {
             );
         }
     },
+    // async assignReferralCode(req, res, next) {
+    //     const session = await mongoose.startSession();
+    //     session.startTransaction();
+
+    //     try {
+    //         const { agentId } = req.params;
+    //         const { quantity } = req.body;
+
+    //         const agent = await findAgentById(agentId);
+    //         if (!agent) {
+    //             await session.abortTransaction();
+    //             session.endSession();
+
+    //             return next(
+    //                 createHttpError(ErrorStatusCode.RESOURCE_NOT_FOUND, {
+    //                     code: ErrorCodes.RESOURCE_NOT_FOUND,
+    //                     message: "Agent not found with this id!",
+    //                 })
+    //             );
+    //         }
+
+    //         // Create referral codes
+    //         const referralList = Array.from(
+    //             { length: parseInt(quantity) },
+    //             () => ({
+    //                 referralCode: generateReferralCode(),
+    //                 agentId: agent._id,
+    //             })
+    //         );
+
+    //         const insertedReferralCodes = await insertReferralCodesToAgent(
+    //             referralList,
+    //             session
+    //         );
+
+    //         const referralIdFromInsertedReferralCodes =
+    //             insertedReferralCodes.map((referral) => referral._id);
+
+    //         const assignReferralCodeNotifcation = await createNotification({
+    //             agentId: agent._id,
+    //             message: NotificationTemplate.REFERRAL_CODE_ALLOTED(quantity),
+    //             type: "REFERRAL_CODE_ALLOTED",
+    //             session,
+    //         });
+
+    //         await updateAgentReferralAndNotification({
+    //             agentId,
+    //             referralIdFromInsertedReferralCodes,
+    //             assignReferralCodeNotifcation,
+    //             session,
+    //         });
+
+    //         await session.commitTransaction();
+    //         session.endSession();
+
+    //         return res.status(SuccessStatusCode.RESOURCE_CREATED).json({
+    //             success: true,
+    //             message: "Referral codes created successfully",
+    //         });
+    //     } catch (error) {
+    //         logger.error(
+    //             `Failed to allot refer code: ${error.message}, Error stack: ${error.stack}`
+    //         );
+
+    //         await session.abortTransaction();
+    //         session.endSession();
+
+    //         return next(
+    //             createHttpError(ErrorStatusCode.SERVER_DATABASE_ERROR, {
+    //                 code: ErrorCodes.SERVER_DATABASE_ERROR,
+    //                 message: "Internal Server Error",
+    //             })
+    //         );
+    //     }
+    // },
 
     async processWithdrawalRequest(req, res, next) {
         const session = await mongoose.startSession();

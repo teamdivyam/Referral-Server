@@ -23,7 +23,7 @@ const ReferralSchema = new mongoose.Schema(
     // The agent who referred the user.
     agentId: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: "Agent",
+      ref: "ReferralAgent",
       required: true,
     },
 

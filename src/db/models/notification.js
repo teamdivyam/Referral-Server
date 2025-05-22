@@ -5,7 +5,7 @@ const NotificationSchema = new mongoose.Schema(
   {
     agentId: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: "Agent",
+      ref: "ReferralAgent",
       required: true,
     },
     message: {
