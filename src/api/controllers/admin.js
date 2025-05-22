@@ -122,21 +122,24 @@ const AdminController = {
             }
 
             // Create referral codes
-            const referralList = Array.from(
-                { length: parseInt(quantity) },
-                () => ({
-                    referralCode: generateReferralCode(),
-                    agentId: agent._id,
-                })
-            );
+            // const referralList = Array.from(
+            //     { length: parseInt(quantity) },
+            //     () => ({
+            //         referralCode: generateReferralCode(),
+            //         agentId: agent._id,
+            //     })
+            // );
 
-            const referralCodeLists = await ReferralModel.insertMany(
-                referralList
-            );
+            const refercode = generateReferralCode();
 
-            const idReferralCodesLists = referralCodeLists.map(
-                (referral) => referral._id
-            );
+            const newReferralCode = await ReferralModel.insertOne({
+                referralCode: refercode,
+                agentId: agent._id,
+            });
+
+            // const idReferralCodesLists = referralCodeLists.map(
+            //     (referral) => referral._id
+            // );
 
             const newNotification = await NotificationModel.insertOne({
                 agentId,
@@ -148,7 +151,7 @@ const AdminController = {
                 { _id: agentId },
                 {
                     $push: {
-                        "referral.active": { $each: idReferralCodesLists },
+                        "referral.active": newReferralCode._id,
                         notifications: newNotification._id,
                     },
                 }
