@@ -82,16 +82,22 @@ const adminService = {
             // Generate referral code and push it into array
             const referralCodeList = generateReferralCodeList(id, quantity);
 
+            console.log("Generate random list of referral code:", referralCodeList);
+
             // Insert generated referral code into referral collection
             const newReferralCodeList = await ReferralModel.insertMany(
                 referralCodeList,
                 { session }
             );
 
+            console.log("New Referral Code List: ", referralCodeIdList);
+
             // Retreive new referral code Id
             const referralCodeIdList = newReferralCodeList.map(
                 (referral) => referral._id
             );
+
+            console.log("Referral Code Id List: ", referralCodeIdList);
 
             // Create new notification to agent that new referral code assigned
             const newNotification = await createNotification({
@@ -100,6 +106,8 @@ const adminService = {
                 type: "REFERRAL_CODE_ALLOTED",
                 session,
             });
+
+            console.log("New notification:", newNotification)
 
             // Push new referral code Id and nofitication into agent.referral.active
             await AgentModel.findByIdAndUpdate(
@@ -119,7 +127,12 @@ const adminService = {
             await session.abortTransaction();
             session.endSession();
 
-            throw Error(error);
+            logger.error(
+                "Error in assignReferralCodeToAgent():",
+                error.message
+            );
+
+            throw error;
         }
     },
 
@@ -185,7 +198,9 @@ const adminService = {
             await session.abortTransaction();
             session.endSession();
 
-            throw Error(error);
+            logger.error("Error in processWithdrawalRequest():", error.message);
+
+            throw error;
         }
     },
 };
