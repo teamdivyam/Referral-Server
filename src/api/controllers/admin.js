@@ -82,6 +82,10 @@ const AdminController = {
             const { agentID } = req.params;
             const { quantity } = req.body;
 
+            console.log("AgentID: ", agentID);
+            console.log("quantity: ", quantity);           
+
+
             const agent = await adminService.getAgentById(agentID);
             if (!agent) {
                 return next(
