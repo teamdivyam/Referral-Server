@@ -81,6 +81,8 @@ const AdminController = {
         try {
             const { agentID } = req.params;
             const { quantity } = req.body;
+            
+            console.log("Request body:", req.body);
 
             console.log("AgentID: ", agentID);
             console.log("quantity: ", quantity);           
