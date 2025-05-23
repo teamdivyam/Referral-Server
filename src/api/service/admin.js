@@ -5,6 +5,7 @@ import WithdrawalModel from "../../db/models/withdrawal.js";
 import generateReferralCodeList from "../../utils/generateReferralCode.js";
 import NotificationTemplate from "../../utils/notificationTemplate.js";
 import { createNotification } from "./notification.js";
+import logger from "../../logging/index.js";
 
 const adminService = {
     getAgentsWithPageLimitSearch: async (page, limit, search) => {
