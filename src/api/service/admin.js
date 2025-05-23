@@ -83,7 +83,10 @@ const adminService = {
             // Generate referral code and push it into array
             const referralCodeList = generateReferralCodeList(id, quantity);
 
-            console.log("Generate random list of referral code:", referralCodeList);
+            console.log(
+                "Generate random list of referral code:",
+                referralCodeList
+            );
 
             // Insert generated referral code into referral collection
             const newReferralCodeList = await ReferralModel.insertMany(
@@ -91,7 +94,7 @@ const adminService = {
                 { session }
             );
 
-            console.log("New Referral Code List: ", referralCodeIdList);
+            console.log("New Referral Code List: ", newReferralCodeList);
 
             // Retreive new referral code Id
             const referralCodeIdList = newReferralCodeList.map(
@@ -108,7 +111,7 @@ const adminService = {
                 session,
             });
 
-            console.log("New notification:", newNotification)
+            console.log("New notification:", newNotification);
 
             // Push new referral code Id and nofitication into agent.referral.active
             await AgentModel.findByIdAndUpdate(
@@ -129,8 +132,7 @@ const adminService = {
             session.endSession();
 
             logger.error(
-                "Error in assignReferralCodeToAgent():",
-                error.message
+                `Error in assignReferralCodeToAgent(): ${error.message}, Error stack: ${error.stack}`
             );
 
             throw error;
