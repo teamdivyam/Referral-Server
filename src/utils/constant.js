@@ -11,7 +11,7 @@ export const REFRESH_TOKEN_EXPIRES = process.env.REFRESH_TOKEN_EXPIRES_IN;
 
 export const HASH_SALT_ROUNDS = 10;
 
-export const MINIMUM_WITHDRAWAL_AMOUNT = 5000;
+export const MINIMUM_WITHDRAWAL_AMOUNT = 100;
 
 export const REWARD_AMOUNT = 2500;
 

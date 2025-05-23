@@ -1,34 +1,18 @@
+import mongoose from "mongoose";
+import createHttpError from "http-errors";
+import logger from "../../logging/index.js";
 import AgentModel from "../../db/models/agent.js";
+import NotificationModel from "../../db/models/notification.js";
 import ReferralModel from "../../db/models/referral.js";
+
 import {
     SuccessStatusCode,
     ErrorStatusCode,
     ErrorCodes,
 } from "../../utils/constant.js";
-import createHttpError from "http-errors";
-import mongoose from "mongoose";
-import NotificationModel from "../../db/models/notification.js";
-
-import logger from "../../logging/index.js";
-
-import { getReferralDocUsingReferralCode } from "../service/referral.js"
+import { getReferralDocUsingReferralCode } from "../service/referral.js";
 
 const ReferralController = {
-    // 20 referral per page
-
-    /**
-     *
-     * @function changeReferralStatusPending
-     * @description
-     * - Change referral status from active to pending
-     * - Remove referral from active state
-     * - Add referral to pending state
-     * - Update agent pending balance
-     * @param {Request} req
-     * @param {Response} res
-     * @param {NextFunction} next
-     * @return {Response}
-     */
     async changeReferralStatusPending(req, res, next) {
         // Start mongoose transaction
         const session = await mongoose.startSession();

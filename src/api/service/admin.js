@@ -1,91 +1,196 @@
+import mongoose from "mongoose";
 import AgentModel from "../../db/models/agent.js";
 import ReferralModel from "../../db/models/referral.js";
 import WithdrawalModel from "../../db/models/withdrawal.js";
+import generateReferralCodeList from "../../utils/generateReferralCode.js";
+import NotificationTemplate from "../../utils/notificationTemplate.js";
+import { createNotification } from "./notification.js";
 
-export const getAgentsForDataTable = async ({
-    query,
-    sortByUpdateAt,
-    offset,
-    limit,
-}) => {
-    try {
-        const agents = await AgentModel.find(query)
-            .select("_id name phoneNumber referral wallet updatedAt accountStatus")
-            .sort(sortByUpdateAt)
-            .skip(offset)
-            .limit(limit)
-            .lean();
-        
-        return agents
-    } catch (error) {
-        throw Error(error);
-    }
-}
+const adminService = {
+    getAgentsWithPageLimitSearch: async (page, limit, search) => {
+        try {
+            const query = search
+                ? { name: { $regex: search, $options: "i" } }
+                : {};
 
-export const findAgentByIdWithLean = async (agentId) => {
-    try {
-        const agent = await AgentModel.findById(agentId)
-            .select(
-                `name email phoneNumber address bankAccounts 
-                referral wallet userProfileCompleteStatus accountStatus`
-            )
-            .populate(
-                "referral.active referral.pending referral.used wallet.withdrawalHistory"
-            )
-            .lean();
+            const sortByUpdate = { updatedAt: -1 };
 
-        return agent;
-    } catch (error) {
-        throw Error(error);
-    }
-};
+            const agents = await AgentModel.find(query)
+                .select(
+                    "_id name phoneNumber referral wallet updatedAt accountStatus"
+                )
+                .sort(sortByUpdate)
+                .skip(limit * (page - 1))
+                .limit(limit)
+                .lean();
 
-export const findAgentById = async (agentId) => {
-    try {
-        const agent = await AgentModel.findById(agentId);
+            agents.forEach((agent) => {
+                agent.totalReferrals = agent.referral.active.length;
+                agent.totalOrders = agent.referral.used.length;
 
-        return agent;
-    } catch (error) {
-        throw Error(error);
-    }
-};
+                delete agent.referral;
+            });
 
-export const insertReferralCodesToAgent = async (referralCodeList, session) => {
-    try {
-        const insertedReferrals = await ReferralModel.insertMany(
-            referralCodeList,
-            { session }
-        );
+            return agents;
+        } catch (error) {
+            throw Error(error);
+        }
+    },
 
-        return insertedReferrals;
-    } catch (error) {
-        throw Error(error);
-    }
-};
+    totalNumberOfAgents: async (search) => {
+        try {
+            const query = search
+                ? { name: { $regex: search, $options: "i" } }
+                : {};
 
-export const updateAgentReferralAndNotification = async ({
-    agentId,
-    referralIdFromInsertedReferralCodes,
-    assignReferralCodeNotifcation,
-    session,
-}) => {
-    try {
-        await AgentModel.findByIdAndUpdate(
-            agentId,
-            {
-                $push: {
-                    "referral.active": {
-                        $each: referralIdFromInsertedReferralCodes,
+            const totalAgents = await AgentModel.countDocuments(query);
+
+            return totalAgents;
+        } catch (error) {
+            throw Error(error);
+        }
+    },
+
+    getAgentDetailsById: async (id) => {
+        try {
+            const agent = await AgentModel.findById(id)
+                .populate(
+                    "wallet.withdrawalHistory referral.active referral.pending referral.used"
+                )
+                .lean();
+
+            return agent;
+        } catch (error) {
+            throw Error(error);
+        }
+    },
+
+    getAgentById: async (id) => {
+        try {
+            const agent = await AgentModel.findById(id);
+            return agent;
+        } catch (error) {
+            throw Error(error);
+        }
+    },
+
+    assignReferralCodeToAgent: async (id, quantity) => {
+        const session = await mongoose.startSession();
+        session.startTransaction();
+
+        try {
+            // Generate referral code and push it into array
+            const referralCodeList = generateReferralCodeList(id, quantity);
+
+            // Insert generated referral code into referral collection
+            const newReferralCodeList = await ReferralModel.insertMany(
+                referralCodeList,
+                { session }
+            );
+
+            // Retreive new referral code Id
+            const referralCodeIdList = newReferralCodeList.map(
+                (referral) => referral._id
+            );
+
+            // Create new notification to agent that new referral code assigned
+            const newNotification = await createNotification({
+                agentId: id,
+                message: NotificationTemplate.REFERRAL_CODE_ALLOTED(quantity),
+                type: "REFERRAL_CODE_ALLOTED",
+                session,
+            });
+
+            // Push new referral code Id and nofitication into agent.referral.active
+            await AgentModel.findByIdAndUpdate(
+                id,
+                {
+                    $push: {
+                        "referral.active": { $each: referralCodeIdList },
+                        notification: newNotification._id,
                     },
-                    notifications: assignReferralCodeNotifcation._id,
                 },
-            },
-            { session }
-        );
-    } catch (error) {
-        throw Error(error);
-    }
+                { session }
+            );
+
+            await session.commitTransaction();
+            session.endSession();
+        } catch (error) {
+            await session.abortTransaction();
+            session.endSession();
+
+            throw Error(error);
+        }
+    },
+
+    processWithdrawalRequest: async (
+        processType,
+        remarks,
+        withdrawalRequest
+    ) => {
+        const session = await mongoose.startSession();
+        session.startTransaction();
+
+        try {
+            if (processType === "approved") {
+                await WithdrawalModel.findByIdAndUpdate(
+                    withdrawalRequest._id,
+                    {
+                        $set: { status: "approved" },
+                    },
+                    { session }
+                );
+                await AgentModel.findByIdAndUpdate(
+                    withdrawalRequest.agentId,
+                    {
+                        $inc: {
+                            "wallet.pendingWithdrawalAmount":
+                                -withdrawalRequest.amount,
+                            "wallet.totalEarningAmount":
+                                withdrawalRequest.amount,
+                        },
+                    },
+                    { session }
+                );
+
+                await session.commitTransaction();
+                session.endSession();
+
+                return "Withdrawal request has been approved!";
+            } else if (processType === "rejected") {
+                await WithdrawalModel.findByIdAndUpdate(
+                    withdrawalRequest._id,
+                    {
+                        $set: { status: "rejected", remarks },
+                    },
+                    { session }
+                );
+                await AgentModel.findByIdAndUpdate(
+                    withdrawalRequest.agentId,
+                    {
+                        $inc: {
+                            "wallet.pendingWithdrawalAmount":
+                                -withdrawalRequest.amount,
+                        },
+                    },
+                    { session }
+                );
+
+                await session.commitTransaction();
+                session.endSession();
+
+                return "Withdrawal request has been rejected!";
+            }
+        } catch (error) {
+            await session.abortTransaction();
+            session.endSession();
+
+            throw Error(error);
+        }
+    },
 };
+
+export default adminService;
 
 export const findWithdrawalRequestById = async (withdrawalId) => {
     try {
@@ -97,99 +202,26 @@ export const findWithdrawalRequestById = async (withdrawalId) => {
     }
 };
 
-export const approvedWithdrawalRequest = async (withdrawalId, session) => {
-    try {
-        await WithdrawalModel.findByIdAndUpdate(
-            withdrawalId,
-            {
-                $set: { status: "approved" },
-            },
-            { session }
-        );
-    } catch (error) {
-        throw Error(error);
-    }
-};
-
-export const rejectedWithdrawalRequest = async (
-    withdrawalId,
-    remarks,
-    session
-) => {
-    try {
-        await WithdrawalModel.findByIdAndUpdate(
-            withdrawalId,
-            {
-                $set: { status: "rejected", remarks },
-            },
-            { session }
-        );
-    } catch (error) {
-        throw Error(error);
-    }
-};
-
-export const approvedWithdrawalAmountUpdate = async (
-    agentId,
-    amount,
-    session
-) => {
-    try {
-        await AgentModel.findByIdAndUpdate(
-            agentId,
-            {
-                $inc: {
-                    "wallet.pendingWithdrawalAmount": -amount,
-                    "wallet.totalEarningAmount": amount,
-                },
-            },
-            { session }
-        );
-    } catch (error) {
-        throw Error(error);
-    }
-};
-
-export const rejectedWithdrawalAmountUpdate = async (
-    agentId,
-    amount,
-    session
-) => {
-    try {
-        await AgentModel.findByIdAndUpdate(
-            agentId,
-            {
-                $inc: {
-                    "wallet.pendingWithdrawalAmount": -amount,
-                },
-            },
-            { session }
-        );
-    } catch (error) {
-        throw Error(error);
-    }
-};
-
 export const deactivateAgentAccount = async (agentId) => {
     try {
         await AgentModel.findByIdAndUpdate(agentId, {
             $set: {
-                accountStatus: "deactivate"
-            }
-        })
+                accountStatus: "deactivate",
+            },
+        });
     } catch (error) {
         throw Error(error);
     }
-}
+};
 
 export const activateAgentAccount = async (agentId) => {
     try {
         await AgentModel.findByIdAndUpdate(agentId, {
             $set: {
-                accountStatus: "activate"
-            }
-        })
+                accountStatus: "activate",
+            },
+        });
     } catch (error) {
         throw Error(error);
     }
-}
+};
