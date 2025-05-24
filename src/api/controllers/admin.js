@@ -1,19 +1,56 @@
 import createHttpError from "http-errors";
+import adminService from "../service/admin.js";
+import logger from "../../logging/index.js";
 
 import {
     ErrorStatusCode,
     ErrorCodes,
     SuccessStatusCode,
 } from "../../utils/constant.js";
-import logger from "../../logging/index.js";
 import {
     activateAgentAccount,
     deactivateAgentAccount,
-    findWithdrawalRequestById
+    findWithdrawalRequestById,
 } from "../service/admin.js";
-import adminService from "../service/admin.js";
 
 const AdminController = {
+    async getDashboardAnalytics(req, res, next) {
+        try {
+            const [
+                totalNumberOfAgents,
+                activeReferralCodes,
+                totalPaidToAgents,
+                totalLatestWithdrawalRequest,
+                totalOrdersCompleted,
+            ] = await Promise.all([
+                adminService.totalNumberOfAgents(),
+                adminService.activeReferralCodes(),
+                adminService.totalPaidToAgents(),
+                adminService.totalLatestWithdrawalRequest(),
+                adminService.totalOrdersCompleted(),
+            ]);
+
+            res.status(SuccessStatusCode.OPERATION_SUCCESSFUL).json({
+                totalNumberOfAgents,
+                activeReferralCodes,
+                totalPaidToAgents,
+                totalLatestWithdrawalRequest,
+                totalOrdersCompleted,
+            });
+        } catch (error) {
+            logger.error(
+                `Error in retreiving admin dashboard analytics: ${error.message}, Error stack: ${error.stack}`
+            );
+
+            return next(
+                createHttpError(ErrorStatusCode.SERVER_DATABASE_ERROR, {
+                    code: ErrorCodes.SERVER_DATABASE_ERROR,
+                    message: "Internal Server Error",
+                })
+            );
+        }
+    },
+
     async getMultipleAgent(req, res, next) {
         try {
             const { page = 1, limit = 100, search = "" } = req.query;
@@ -81,12 +118,6 @@ const AdminController = {
         try {
             const { agentID } = req.params;
             const { quantity } = req.body;
-            
-            console.log("Request body:", req.body);
-
-            console.log("AgentID: ", agentID);
-            console.log("quantity: ", quantity);           
-
 
             const agent = await adminService.getAgentById(agentID);
             if (!agent) {

@@ -52,6 +52,53 @@ const adminService = {
         }
     },
 
+    activeReferralCodes: async () => {
+        try {
+            const activeReferrals = await ReferralModel.countDocuments({ status: "active" });
+
+            return activeReferrals;
+        } catch (error) {
+            throw error;
+        }
+    },
+
+    totalLatestWithdrawalRequest: async () => {
+        try {
+            const result = await WithdrawalModel.countDocuments({ status: "pending" });
+
+            return result;
+        } catch (error) {
+            throw error;
+        }
+    },
+
+    totalPaidToAgents: async () => {
+        try {
+            const result = await WithdrawalModel.aggregate([
+                { $match: { status: "approved" }},
+                { $group: {
+                    _id: null,
+                    totalPaid: { $sum: "$amount" }
+                 }}
+            ]);
+
+            const totalPaid = result[0]?.totalPaid || 0;
+            return totalPaid;
+        } catch (error) {
+            throw error;
+        }
+    },
+
+    totalOrdersCompleted: async () => {
+        try {
+            const result = await ReferralModel.countDocuments({ status: "used" });
+
+            return result;
+        } catch (error) {
+            throw error;
+        }
+    },
+
     getAgentDetailsById: async (id) => {
         try {
             const agent = await AgentModel.findById(id)
@@ -83,25 +130,16 @@ const adminService = {
             // Generate referral code and push it into array
             const referralCodeList = generateReferralCodeList(id, quantity);
 
-            console.log(
-                "Generate random list of referral code:",
-                referralCodeList
-            );
-
             // Insert generated referral code into referral collection
             const newReferralCodeList = await ReferralModel.insertMany(
                 referralCodeList,
                 { session }
             );
 
-            console.log("New Referral Code List: ", newReferralCodeList);
-
             // Retreive new referral code Id
             const referralCodeIdList = newReferralCodeList.map(
                 (referral) => referral._id
             );
-
-            console.log("Referral Code Id List: ", referralCodeIdList);
 
             // Create new notification to agent that new referral code assigned
             const newNotification = await createNotification({
@@ -110,8 +148,6 @@ const adminService = {
                 type: "REFERRAL_CODE_ALLOTED",
                 session,
             });
-
-            console.log("New notification:", newNotification);
 
             // Push new referral code Id and nofitication into agent.referral.active
             await AgentModel.findByIdAndUpdate(

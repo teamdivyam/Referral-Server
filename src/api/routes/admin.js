@@ -5,6 +5,7 @@ import AdminAuthController from "../controllers/adminAuth.js";
 const AdminRouter = express.Router();
 
 /** --------------------GET--------------------- */
+AdminRouter.get("/dashboard-analytics", AdminController.getDashboardAnalytics);
 AdminRouter.get("/agents", AdminController.getMultipleAgent);
 AdminRouter.get("/agent/:agentID", AdminController.getOneAgent);
 AdminRouter.post("/assign-referral-code/:agentID", AdminController.assignReferralCode);
