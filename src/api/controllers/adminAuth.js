@@ -1,8 +1,8 @@
 import createHttpError from "http-errors";
 import logger from "../../logging/index.js";
-import { comparePassword, hashPasswordFn } from "../../utils/password.js";
 import jwt from "jsonwebtoken";
 import AdminModel from "../../db/models/admin.js";
+import { comparePassword, hashPasswordFn } from "../../utils/password.js";
 import {
     ACCESS_TOKEN_SECRET,
     ErrorCodes,
