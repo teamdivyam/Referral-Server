@@ -12,6 +12,13 @@ import {
     deactivateAgentAccount,
     findWithdrawalRequestById,
 } from "../service/admin.js";
+import {
+    agentAccountStatus,
+    assingReferralCodeQuantity,
+    objectIdValidation,
+    processWithdrawalValidation,
+    validatePageLimitSearch,
+} from "../validators/admin.js";
 
 const AdminController = {
     async getDashboardAnalytics(req, res, next) {
@@ -55,6 +62,19 @@ const AdminController = {
         try {
             const { page = 1, limit = 100, search = "" } = req.query;
 
+            const { error } = validatePageLimitSearch.validate({
+                page,
+                limit,
+            });
+            if (error) {
+                return next(
+                    createHttpError(ErrorStatusCode.VALIDATION_INVALID_FORMAT, {
+                        code: ErrorCodes.VALIDATION_INVALID_FORMAT,
+                        message: "Query Invalidation Error!",
+                    })
+                );
+            }
+
             const agents = await adminService.getAgentsWithPageLimitSearch(
                 page,
                 limit,
@@ -85,6 +105,15 @@ const AdminController = {
     async getOneAgent(req, res, next) {
         try {
             const { agentID } = req.params;
+
+            if (!objectIdValidation(agentID)) {
+                return next(
+                    createHttpError(ErrorStatusCode.VALIDATION_INVALID_FORMAT, {
+                        code: ErrorCodes.VALIDATION_INVALID_FORMAT,
+                        message: "Query Invalidation Error!",
+                    })
+                );
+            }
 
             const agent = await adminService.getAgentDetailsById(agentID);
             if (!agent) {
@@ -118,6 +147,24 @@ const AdminController = {
         try {
             const { agentID } = req.params;
             const { quantity } = req.body;
+
+            if (!objectIdValidation(agentID)) {
+                return next(
+                    createHttpError(ErrorStatusCode.VALIDATION_INVALID_FORMAT, {
+                        code: ErrorCodes.VALIDATION_INVALID_FORMAT,
+                        message: "Query Invalidation Error!",
+                    })
+                );
+            }
+            const { error } = assingReferralCodeQuantity.validate(quantity);
+            if (error) {
+                return next(
+                    createHttpError(ErrorStatusCode.VALIDATION_INVALID_FORMAT, {
+                        code: ErrorCodes.VALIDATION_INVALID_FORMAT,
+                        message: "Invalidation format!",
+                    })
+                );
+            }
 
             const agent = await adminService.getAgentById(agentID);
             if (!agent) {
@@ -153,6 +200,27 @@ const AdminController = {
         try {
             const { processType, withdrawalID } = req.params;
             const { remarks = null } = req.body;
+
+            if (!objectIdValidation(withdrawalID)) {
+                return next(
+                    createHttpError(ErrorStatusCode.VALIDATION_INVALID_FORMAT, {
+                        code: ErrorCodes.VALIDATION_INVALID_FORMAT,
+                        message: "Query Invalidation Error!",
+                    })
+                );
+            }
+            const { error } = processWithdrawalValidation.validate({
+                processType,
+                remarks,
+            });
+            if (error) {
+                return next(
+                    createHttpError(ErrorStatusCode.VALIDATION_INVALID_FORMAT, {
+                        code: ErrorCodes.VALIDATION_INVALID_FORMAT,
+                        message: "Query and Body Invalidation Error!",
+                    })
+                );
+            }
 
             const withdrawalRequest = await findWithdrawalRequestById(
                 withdrawalID
@@ -192,6 +260,24 @@ const AdminController = {
     async agentAccountStatusChange(req, res, next) {
         try {
             const { accountStatus, agentID } = req.params;
+
+            if (!objectIdValidation(agentID)) {
+                return next(
+                    createHttpError(ErrorStatusCode.VALIDATION_INVALID_FORMAT, {
+                        code: ErrorCodes.VALIDATION_INVALID_FORMAT,
+                        message: "Query Invalidation Error!",
+                    })
+                );
+            }
+            const { error } = agentAccountStatus.validate(accountStatus);
+            if (error) {
+                return next(
+                    createHttpError(ErrorStatusCode.VALIDATION_INVALID_FORMAT, {
+                        code: ErrorCodes.VALIDATION_INVALID_FORMAT,
+                        message: "Query Invalidation Error!",
+                    })
+                );
+            }
 
             if (accountStatus === "deactivate") {
                 await deactivateAgentAccount(agentID);
