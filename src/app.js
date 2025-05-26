@@ -51,6 +51,16 @@ app.use("/api/referral-system/referral", ReferralRouter);
 app.use("/api/referral-system/admin", adminAuth, AdminRouter);
 app.post("/api/referral-system/refresh-token", refreshTokenMiddleware);
 
+// Unkown routes error handler
+app.use("*", (req, res) => {
+  res.status(404).json({
+    success: false,
+    message: "Route not found",
+    path: req.originalUrl,
+    method: req.method,
+  });
+});
+
 // Error Handler
 app.use(globalErrorHandler);
 
