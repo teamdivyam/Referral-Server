@@ -11,6 +11,7 @@ import {
     ErrorCodes,
 } from "../../utils/constant.js";
 import { getReferralDocUsingReferralCode } from "../service/referral.js";
+import notificationService from "../service/notification.js";
 
 const ReferralController = {
     async changeReferralStatusPending(req, res, next) {
@@ -50,11 +51,18 @@ const ReferralController = {
             }
 
             // Create notification
-            const notification = new NotificationModel({
+            // const notification = new NotificationModel({
+            //     agentId: referral.agentId,
+            //     message: `Referral code ${referralCode} is now pending.`,
+            //     type: "REFERRAL_CODE_STATUS",
+            // });
+
+            const notification = await notificationService.createNotification({
                 agentId: referral.agentId,
                 message: `Referral code ${referralCode} is now pending.`,
                 type: "REFERRAL_CODE_STATUS",
-            });
+                session
+            })
 
             /**
              * Update referral
@@ -86,8 +94,6 @@ const ReferralController = {
                 },
                 { session }
             );
-
-            await notification.save({ session });
 
             await session.commitTransaction(); // ✅ Commit transaction (save changes)
             session.endSession();

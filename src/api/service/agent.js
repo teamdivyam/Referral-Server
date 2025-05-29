@@ -84,14 +84,88 @@ export const totalAgentUsingSearchService = async (query) => {
     }
 };
 
-export const withdrawalHistoryService = async (agentId) => {
-    try {
-        const agent = await AgentModel.findById(agentId).populate(
-            "wallet.withdrawalHistory"
-        );
+const agentService = {
+    updateProfile: async ({
+        agentID,
+        name,
+        phoneNumber,
+        addressLine1,
+        addressLine2,
+        city,
+        state,
+    }) => {
+        try {
+            await AgentModel.updateOne(
+                { _id: agentID },
+                {
+                    $set: {
+                        name,
+                        phoneNumber,
+                        address: { addressLine1, addressLine2, city, state },
+                        "userProfileCompleteStatus.profile": true,
+                    },
+                }
+            );
+        } catch (error) {
+            throw error;
+        }
+    },
 
-        return agent.wallet.withdrawalHistory;
-    } catch (error) {
-        throw error;
-    }
+    addBankAccount: async ({
+        agentID,
+        bankName,
+        accountHolderName,
+        accountNumber,
+        ifscCode,
+    }) => {
+        try {
+            await AgentModel.updateOne(
+                { _id: agentID },
+                {
+                    $push: {
+                        bankAccounts: {
+                            bankName,
+                            accountHolderName,
+                            accountNumber,
+                            ifscCode,
+                        },
+                    },
+                    $set: {
+                        "userProfileCompleteStatus.bank": true,
+                    },
+                },
+                { session }
+            );
+        } catch (error) {
+            throw error;
+        }
+    },
+
+    setBankAccountPrimary: async ({ agentID, bankID }) => {
+        try {
+            const agent = await AgentModel.findById(agentID);
+
+            agent.bankAccounts.forEach((bank) => {
+                bank.isPrimary = bank._id.equals(bankID);
+            });
+
+            await agent.save();
+        } catch (error) {
+            throw error;
+        }
+    },
+
+    withdrawalHistory: async (agentID) => {
+        try {
+            const agent = await AgentModel.findById(agentID).populate(
+                "wallet.withdrawalHistory"
+            );
+
+            return agent.wallet.withdrawalHistory;
+        } catch (error) {
+            throw error;
+        }
+    },
 };
+
+export default agentService;

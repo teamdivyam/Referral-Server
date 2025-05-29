@@ -6,6 +6,7 @@ import ReferralModel from "../src/db/models/referral.js";
 import OrderModel from "../src/db/models/order.js";
 import NotificationModel from "../src/db/models/notification.js";
 import NotificationTemplate from "../src/utils/notificationTemplate.js";
+import notificationService from "../src/api/service/notification.js";
 
 (async () => {
   try {
@@ -47,13 +48,14 @@ const job = new CronJob(
            * 2. Push referral id in agent.referral.used
            */
           if (orderStatusTypeRejected.includes(referral.order.orderStatus)) {
-            const notificationRefunded = await NotificationModel.insertOne({
+            const notificationRejected = await notificationService.createNotification({
               agentId: referral.agentId,
               message: NotificationTemplate.TRACK_REFERRAL_CODE.REFUNDED(
                 referral.referralCode
               ),
               type: "REFERRAL_CODE_STATUS",
-            });
+              session
+            })
 
             referral.status = "used";
             await referral.save();
@@ -69,7 +71,7 @@ const job = new CronJob(
             await AgentModel.findByIdAndUpdate(referral.agentId, {
               $push: {
                 "referral.used": referral._id,
-                notifications: notificationRefunded._id,
+                notifications: notificationRejected._id,
               },
             });
           }
@@ -83,20 +85,22 @@ const job = new CronJob(
            * 2. Push referral id in agent.referral.used
            */
           if (orderStatusTypeCompleted.includes(referral.order.orderStatus)) {
-            const notificationReferralUsed = await NotificationModel.insertOne({
+            const notificationReferralUsed = await notificationService.createNotification({              
               agentId: referral.agentId,
               message: NotificationTemplate.TRACK_REFERRAL_CODE.USED(
                 referral.referralCode
               ),
               type: "REFERRAL_CODE_STATUS",
-            });
-            const notificationAmountDeposited = await NotificationModel.insertOne({
+              session
+            })
+            const notificationAmountDeposited = await notificationService.createNotification({
               agentId: referral.agentId,
               message: NotificationTemplate.WALLET.DEPOSITED(
                 referral.rewardAmount
               ),
               type: "WITHDRAWAL",
-            });
+              session
+            })
 
             referral.status = "used";
             await referral.save();

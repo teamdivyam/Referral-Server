@@ -10,14 +10,13 @@ import {
     MINIMUM_WITHDRAWAL_AMOUNT,
     NOTIFICATION_PER_PAGE,
 } from "../../utils/constant.js";
-import {
+import notificationService, {
     countNotifications,
     countUnreadNotifications,
     markNotificationReadService,
-    notificationService,
 } from "../service/notification.js";
 import logger from "../../logging/index.js";
-import { withdrawalHistoryService } from "../service/agent.js";
+import agentService from "../service/agent.js";
 import {
     activeReferrals,
     countLatestReferrals,
@@ -151,12 +150,14 @@ const AgentController = {
             const { page } = req.query || 1;
             const skip = (page - 1) * limit;
 
-            const notifications = await notificationService(
-                req.user._id,
+            const notifications = await notificationService.notifications({
+                agentID: req.user._id,
                 skip,
-                limit
+                limit,
+            });
+            const total = await notificationService.countNotification(
+                req.user._id
             );
-            const total = await countNotifications(req.user._id);
 
             return res.status(SuccessStatusCode.OPERATION_SUCCESSFUL).json({
                 notifications,
@@ -197,17 +198,15 @@ const AgentController = {
                 );
             }
 
-            await AgentModel.updateOne(
-                { _id: req.user._id },
-                {
-                    $set: {
-                        name,
-                        phoneNumber,
-                        address: { addressLine1, addressLine2, city, state },
-                        "userProfileCompleteStatus.profile": true,
-                    },
-                }
-            );
+            await agentService.updateProfile({
+                agentID: req.user._id,
+                name,
+                phoneNumber,
+                addressLine1,
+                addressLine2,
+                city,
+                state,
+            });
 
             return res.status(SuccessStatusCode.RESOURCE_UPDATED).json({
                 success: true,
@@ -237,8 +236,6 @@ const AgentController = {
 
             const { error } = BankValidation.validate(req.body);
             if (error) {
-                console.log("Validation error:", error.details[0].message);
-
                 session.abortTransaction();
                 session.endSession();
 
@@ -250,23 +247,13 @@ const AgentController = {
                 );
             }
 
-            await AgentModel.updateOne(
-                { _id: req.user._id },
-                {
-                    $push: {
-                        bankAccounts: {
-                            bankName,
-                            accountHolderName,
-                            accountNumber,
-                            ifscCode,
-                        },
-                    },
-                    $set: {
-                        "userProfileCompleteStatus.bank": true,
-                    },
-                },
-                { session }
-            );
+            await agentService.addBankAccount({
+                agentID: req.user._id,
+                bankName,
+                accountHolderName,
+                accountNumber,
+                ifscCode,
+            });
 
             await session.commitTransaction();
             session.endSession();
@@ -294,15 +281,10 @@ const AgentController = {
 
     async setBankAccountPrimary(req, res, next) {
         try {
-            const bankId = req.body.bankId;
-
-            const agent = await AgentModel.findById(req.user._id);
-
-            agent.bankAccounts.forEach((bank) => {
-                bank.isPrimary = bank._id.equals(bankId); // true for selected, false for others
+            await agentService.setBankAccountPrimary({
+                agentID: req.user._id,
+                bankID: req.body.bankId,
             });
-
-            await agent.save();
 
             res.status(SuccessStatusCode.RESOURCE_UPDATED).json({
                 success: true,
@@ -324,7 +306,9 @@ const AgentController = {
 
     async getWithdrawalHistory(req, res, next) {
         try {
-            const withdrawalHistory = await withdrawalHistoryService();
+            const withdrawalHistory = await adminService.withdrawalHistory(
+                req.user._id
+            );
 
             return res.status(SuccessStatusCode.OPERATION_SUCCESSFUL).json({
                 withdrawalHistory,
@@ -346,7 +330,7 @@ const AgentController = {
     async markNotificationRead(req, res, next) {
         try {
             // Update notification status to read
-            await markNotificationReadService(req.user._id);
+            await notificationService.markNotificationRead(req.user._id);
 
             return res.status(SuccessStatusCode.OPERATION_SUCCESSFUL).json({
                 success: true,

@@ -12,6 +12,7 @@ import AdminRouter from "./api/routes/admin.js";
 import { requireAuth } from "./config/passport.js";
 import logger from "./logging/index.js";
 import adminAuth from "./api/middlewares/adminAuth.js";
+import ReferralRouterV1 from "./api/routes/referralV1.js";
 
 const app = express();
 
@@ -50,6 +51,8 @@ app.use("/api/referral-system/agent", requireAuth, AgentRouter);
 app.use("/api/referral-system/referral", ReferralRouter);
 app.use("/api/referral-system/admin", adminAuth, AdminRouter);
 app.post("/api/referral-system/refresh-token", refreshTokenMiddleware);
+
+app.use("/api/referral", ReferralRouterV1);
 
 // Unkown routes error handler
 app.use("*", (req, res) => {
