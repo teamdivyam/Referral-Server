@@ -8,34 +8,48 @@ import {
 import generateReferralCode from "../../utils/genReferralCodeV1.js";
 import logger from "../../logging/index.js";
 import ReferralEventModel from "../../db/models/ReferralEventsV1.js";
+import UserModel from "../../db/models/user.js";
+import ReferralWithdrawalModel from "../../db/models/ReferralWithdrawalV1.js";
+import mongoose from "mongoose";
 
 const referralController = {
     createReferralUser: async (req, res, next) => {
         try {
-            const { phoneNo } = req.query;
+            const { userID } = req.params;
 
-            const user = await ReferralUserModelV1.findOne({ phoneNo });
+            const user = await UserModel.findById(userID);
 
-            if (user) {
+            if (!user) {
+                return next(
+                    createHttpError(ErrorStatusCode.RESOURCE_NOT_FOUND, {
+                        code: ErrorCodes.RESOURCE_NOT_FOUND,
+                        message: "User is not exists!",
+                    })
+                );
+            }
+            if (user.refer.isReferrer) {
                 return next(
                     createHttpError(ErrorStatusCode.RESOURCE_ALREADY_EXISTS, {
                         code: ErrorCodes.RESOURCE_ALREADY_EXISTS,
-                        message: "User is already existed",
+                        message: "User have already a referral Code!",
                     })
                 );
             }
 
             const referralCode = generateReferralCode();
 
-            const newUser = await ReferralUserModelV1.insertOne({
-                phoneNo,
+            const newReferralUser = await ReferralUserModelV1.insertOne({
+                user: userID,
                 referralCode,
             });
 
+            user.refer.isReferrer = true;
+            user.refer.referralId = newReferralUser._id;
+
+            await user.save();
+
             res.status(SuccessStatusCode.RESOURCE_CREATED).json({
                 success: true,
-                message: "Referral code created successfully for this user.",
-                referralCode: newUser.referralCode,
             });
         } catch (error) {
             logger.error(
@@ -53,14 +67,16 @@ const referralController = {
 
     user: async (req, res, next) => {
         try {
-            const { phoneNo } = req.query;
+            const { userID } = req.params;
 
-            const user = await ReferralUserModelV1.findOne({ phoneNo });
+            const user = await ReferralUserModelV1.findOne({
+                user: userID,
+            }).populate("user");
 
             if (!user) {
                 return next(
-                    createHttpError(ErrorStatusCode.RESOURCE_ALREADY_EXISTS, {
-                        code: ErrorCodes.RESOURCE_ALREADY_EXISTS,
+                    createHttpError(ErrorStatusCode.RESOURCE_NOT_FOUND, {
+                        code: ErrorCodes.RESOURCE_NOT_FOUND,
                         message:
                             "User is not registered for refer & earn program!",
                     })
@@ -88,9 +104,9 @@ const referralController = {
         try {
             const { referralCode, refereeId, orderId } = req.query;
 
-            const user = await ReferralUserModelV1.findOne({ referralCode });
+            const referralUser = await ReferralUserModelV1.findOne({ referralCode });
 
-            if (!user) {
+            if (!user || user.accountStatus === "deactive") {
                 return next(
                     createHttpError(ErrorStatusCode.RESOURCE_NOT_FOUND, {
                         code: ErrorCodes.RESOURCE_NOT_FOUND,
@@ -100,13 +116,13 @@ const referralController = {
             }
 
             const newReferralEvent = await ReferralEventModel.insertOne({
-                referrer: user._id,
+                referrer: referralUser._id,
                 referee: refereeId,
-                referralCode: referralCode,
+                referralCode: referralUser.referralCode,
                 orderId: orderId,
             });
 
-            user.referralEvents.push(newReferralEvent);
+            referralUser.referralEvents.push(newReferralEvent._id);
 
             await user.save();
 
@@ -128,8 +144,66 @@ const referralController = {
     },
 
     withdrawal: async (req, res, next) => {
+        const MIN_WITHDRAWAL_AMOUNT = 5000;
+
+        const session = await mongoose.startSession();
+        session.startTransaction();
+
         try {
-        } catch (error) {}
+            const { userID } = req.params;
+            const { amount } = req.body;
+
+            const referralUser = await ReferralUserModelV1.findOne({
+                user: userID,
+            });
+
+            if (referralUser.wallet.balance < MIN_WITHDRAWAL_AMOUNT) {
+                await session.abortTransaction();
+                session.endSession();
+
+                return next(
+                    createHttpError(ErrorStatusCode.INSUFFECIENT_BALANCE, {
+                        code: ErrorCodes.INSUFFECIENT_BALANCE,
+                        message: "Insuffecient Balance",
+                    })
+                );
+            }
+
+            const newReferralWithdrawal =
+                await ReferralWithdrawalModel.insertOne({
+                    referralUserId: referralUser._id,
+                    amount: amount,
+                });
+
+            referralUser.wallet.balance =
+                referralUser.wallet.balance - newReferralWithdrawal.amount;
+            referralUser.wallet.pendingWithdrawal =
+                referralUser.wallet.pendingWithdrawal + newReferralWithdrawal.amount;
+
+            referralUser.wallet.withdrawals.push(
+                newReferralWithdrawal._id
+            );
+
+            await referralUser.save();
+
+            res.status(SuccessStatusCode.OPERATION_SUCCESSFUL).json({
+                success: true,
+            });
+        } catch (error) {
+            await session.abortTransaction();
+            session.endSession();
+
+            logger.error(
+                `Error in initating withdrawal: ${error.message}, Error stack: ${error.stack}`
+            );
+
+            return next(
+                createHttpError(ErrorStatusCode.SERVER_DATABASE_ERROR, {
+                    code: ErrorCodes.SERVER_DATABASE_ERROR,
+                    message: "Internal Server Error",
+                })
+            );
+        }
     },
 
     isReferralCodeValid: async (req, res, next) => {

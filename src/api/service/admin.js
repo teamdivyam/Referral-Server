@@ -6,65 +6,64 @@ import generateReferralCodeList from "../../utils/generateReferralCode.js";
 import NotificationTemplate from "../../utils/notificationTemplate.js";
 import { createNotification } from "./notification.js";
 import logger from "../../logging/index.js";
+import ReferralUserModelV1 from "../../db/models/ReferralUserV1.js";
+import ReferralWithdrawalModel from "../../db/models/ReferralWithdrawalV1.js";
+import ReferralEventModel from "../../db/models/ReferralEventsV1.js";
+import UserModel from "../../db/models/user.js";
 
 const adminService = {
-    getAgentsWithPageLimitSearch: async (page, limit, search) => {
+    getReferralUserWithPageLimitSearch: async (page, limit, search) => {
         try {
             const query = search
-                ? { name: { $regex: search, $options: "i" } }
+                ? { fullName: { $regex: search, $options: "i" } }
                 : {};
 
             const sortByUpdate = { updatedAt: -1 };
 
-            const agents = await AgentModel.find(query)
-                .select(
-                    "_id name phoneNumber referral wallet updatedAt accountStatus"
-                )
+            const referralUsers = await UserModel.find({
+                "refer.isReferrer": true,
+                ...query,
+            })
+                .populate({
+                    path: "refer.referralId",
+                    populate: [
+                        {
+                            path: "referralEvents",
+                            model: "referralevent",
+                        },
+                        {
+                            path: "wallet.withdrawals",
+                            model: "referralwithdrawal",
+                        },
+                    ],
+                })
                 .sort(sortByUpdate)
                 .skip(limit * (page - 1))
                 .limit(limit)
                 .lean();
 
-            agents.forEach((agent) => {
-                agent.totalReferrals = agent.referral.active.length;
-                agent.totalOrders = agent.referral.used.length;
-
-                delete agent.referral;
+            // Adding totalRefer and totalReferCompleted
+            referralUsers.forEach((user) => {
+                user.totalRefer = user.refer.referralId.referralEvents.length;
+                user.totalReferCompleted =
+                    user.refer.referralId.referralEvents.filter(
+                        (event) => event.status === "completed"
+                    ).length;
             });
 
-            return agents;
-        } catch (error) {
-            throw Error(error);
-        }
-    },
-
-    totalNumberOfAgents: async (search) => {
-        try {
-            const query = search
-                ? { name: { $regex: search, $options: "i" } }
-                : {};
-
-            const totalAgents = await AgentModel.countDocuments(query);
-
-            return totalAgents;
-        } catch (error) {
-            throw Error(error);
-        }
-    },
-
-    activeReferralCodes: async () => {
-        try {
-            const activeReferrals = await ReferralModel.countDocuments({ status: "active" });
-
-            return activeReferrals;
+            return referralUsers;
         } catch (error) {
             throw error;
         }
     },
 
-    totalLatestWithdrawalRequest: async () => {
+    totalReferralUser: async (search) => {
         try {
-            const result = await WithdrawalModel.countDocuments({ status: "pending" });
+            const query = search
+                ? { name: { $regex: search, $options: "i" } }
+                : {};
+
+            const result = await ReferralUserModelV1.countDocuments(query);
 
             return result;
         } catch (error) {
@@ -72,14 +71,28 @@ const adminService = {
         }
     },
 
-    totalPaidToAgents: async () => {
+    totalLatestWithdrawalRequest: async () => {
         try {
-            const result = await WithdrawalModel.aggregate([
-                { $match: { status: "approved" }},
-                { $group: {
-                    _id: null,
-                    totalPaid: { $sum: "$amount" }
-                 }}
+            const result = await ReferralWithdrawalModel.countDocuments({
+                status: "pending",
+            });
+
+            return result;
+        } catch (error) {
+            throw error;
+        }
+    },
+
+    totalPaidToReferralUser: async () => {
+        try {
+            const result = await ReferralWithdrawalModel.aggregate([
+                { $match: { status: "completed" } },
+                {
+                    $group: {
+                        _id: null,
+                        totalPaid: { $sum: "$amount" },
+                    },
+                },
             ]);
 
             const totalPaid = result[0]?.totalPaid || 0;
@@ -91,7 +104,9 @@ const adminService = {
 
     totalOrdersCompleted: async () => {
         try {
-            const result = await ReferralModel.countDocuments({ status: "used" });
+            const result = await ReferralEventModel.countDocuments({
+                status: "completed",
+            });
 
             return result;
         } catch (error) {
@@ -99,78 +114,14 @@ const adminService = {
         }
     },
 
-    getAgentDetailsById: async (id) => {
+    getReferralUserById: async (referralUserID) => {
         try {
-            const agent = await AgentModel.findById(id)
-                .populate(
-                    "wallet.withdrawalHistory referral.active referral.pending referral.used"
-                )
-                .lean();
+            const referralUser = await ReferralUserModelV1.findById(
+                referralUserID
+            ).populate("user wallet.withdrawals");
 
-            return agent;
+            return referralUser;
         } catch (error) {
-            throw Error(error);
-        }
-    },
-
-    getAgentById: async (id) => {
-        try {
-            const agent = await AgentModel.findById(id);
-            return agent;
-        } catch (error) {
-            throw Error(error);
-        }
-    },
-
-    assignReferralCodeToAgent: async (id, quantity) => {
-        const session = await mongoose.startSession();
-        session.startTransaction();
-
-        try {
-            // Generate referral code and push it into array
-            const referralCodeList = generateReferralCodeList(id, quantity);
-
-            // Insert generated referral code into referral collection
-            const newReferralCodeList = await ReferralModel.insertMany(
-                referralCodeList,
-                { session }
-            );
-
-            // Retreive new referral code Id
-            const referralCodeIdList = newReferralCodeList.map(
-                (referral) => referral._id
-            );
-
-            // Create new notification to agent that new referral code assigned
-            const newNotification = await createNotification({
-                agentId: id,
-                message: NotificationTemplate.REFERRAL_CODE_ALLOTED(quantity),
-                type: "REFERRAL_CODE_ALLOTED",
-                session,
-            });
-
-            // Push new referral code Id and nofitication into agent.referral.active
-            await AgentModel.findByIdAndUpdate(
-                id,
-                {
-                    $push: {
-                        "referral.active": { $each: referralCodeIdList },
-                        notification: newNotification._id,
-                    },
-                },
-                { session }
-            );
-
-            await session.commitTransaction();
-            session.endSession();
-        } catch (error) {
-            await session.abortTransaction();
-            session.endSession();
-
-            logger.error(
-                `Error in assignReferralCodeToAgent(): ${error.message}, Error stack: ${error.stack}`
-            );
-
             throw error;
         }
     },
@@ -185,20 +136,20 @@ const adminService = {
 
         try {
             if (processType === "approved") {
-                await WithdrawalModel.findByIdAndUpdate(
+                await ReferralWithdrawalModel.findByIdAndUpdate(
                     withdrawalRequest._id,
                     {
                         $set: { status: "approved" },
                     },
                     { session }
                 );
-                await AgentModel.findByIdAndUpdate(
-                    withdrawalRequest.agentId,
+                await ReferralUserModelV1.findByIdAndUpdate(
+                    withdrawalRequest.referralUserId,
                     {
                         $inc: {
-                            "wallet.pendingWithdrawalAmount":
+                            "wallet.pendingWithdrawal":
                                 -withdrawalRequest.amount,
-                            "wallet.totalEarningAmount":
+                            "wallet.totalEarning":
                                 withdrawalRequest.amount,
                         },
                     },
@@ -248,7 +199,9 @@ export default adminService;
 
 export const findWithdrawalRequestById = async (withdrawalId) => {
     try {
-        const withdrawalRequest = await WithdrawalModel.findById(withdrawalId);
+        const withdrawalRequest = await ReferralUserModelV1.findById(
+            withdrawalId
+        );
 
         return withdrawalRequest;
     } catch (error) {

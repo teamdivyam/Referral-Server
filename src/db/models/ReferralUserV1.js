@@ -42,15 +42,16 @@ const BankAccountSchema = new mongoose.Schema(
 
 const ReferralUserSchemaV1 = new mongoose.Schema(
     {
-        phoneNo: {
-            type: String,
-            required: true,
+        user: {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: "User",
             unique: true,
+            required: true,
         },
         referralCode: {
             type: String,
-            required: true,
             unique: true,
+            required: true,
         },
         referralEvents: [
             { type: mongoose.Schema.Types.ObjectId, ref: "referralevent" },
@@ -58,17 +59,25 @@ const ReferralUserSchemaV1 = new mongoose.Schema(
         wallet: {
             balance: {
                 type: Number,
+                min: 0,
                 default: 0,
             },
             pendingBalance: {
                 type: Number,
+                min: 0,
                 default: 0,
+            },
+            pendingWithdrawal: {
+                type: Number,
+                min: 0,
+                default: 0
             },
             totalEarning: {
                 type: Number,
+                min: 0,
                 default: 0,
             },
-            withdrawalHistory: [
+            withdrawals: [
                 {
                     type: mongoose.Schema.Types.ObjectId,
                     ref: "referralwithdrawal",
@@ -76,9 +85,15 @@ const ReferralUserSchemaV1 = new mongoose.Schema(
             ],
             accounts: [{ type: BankAccountSchema, default: null }],
         },
+        accountStatus: {
+            type: String,
+            enum: ["active", "deactive"],
+            default: "active",
+        },
     },
     {
         timestamps: true,
+        versionKey: false,
     }
 );
 

@@ -3,9 +3,9 @@ import AuthController from "../controllers/agentAuth.js";
 import AdminAuthController from "../controllers/adminAuth.js";
 const AuthRouter = express.Router();
 
-AuthRouter.post("/login", AuthController.login);
-AuthRouter.post("/register", AuthController.register);
-AuthRouter.post("/logout", AuthController.logout);
+// AuthRouter.post("/login", AuthController.login);
+// AuthRouter.post("/register", AuthController.register);
+// AuthRouter.post("/logout", AuthController.logout);
 
 // Admin Authentication
 AuthRouter.post("/admin/login", AdminAuthController.login);

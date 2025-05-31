@@ -46,10 +46,10 @@ app.use((req, res, next) => {
 
 
 // Routers
-// app.use("/api/referral-system/auth", AuthRouter);
+app.use("/api/referral/auth", AuthRouter);
+app.use("/api/referral/admin", adminAuth, AdminRouter);
 // app.use("/api/referral-system/agent", requireAuth, AgentRouter);
 // app.use("/api/referral-system/referral", ReferralRouter);
-// app.use("/api/referral-system/admin", adminAuth, AdminRouter);
 // app.post("/api/referral-system/refresh-token", refreshTokenMiddleware);
 
 app.use("/api/referral", ReferralRouterV1);

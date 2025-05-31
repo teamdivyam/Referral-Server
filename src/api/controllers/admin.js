@@ -19,28 +19,26 @@ import {
     processWithdrawalValidation,
     validatePageLimitSearch,
 } from "../validators/admin.js";
+import UserModel from "../../db/models/user.js";
 
 const AdminController = {
     async getDashboardAnalytics(req, res, next) {
         try {
             const [
-                totalNumberOfAgents,
-                activeReferralCodes,
-                totalPaidToAgents,
+                totalReferralUser,
+                totalPaidToReferralUser,
                 totalLatestWithdrawalRequest,
                 totalOrdersCompleted,
             ] = await Promise.all([
-                adminService.totalNumberOfAgents(),
-                adminService.activeReferralCodes(),
-                adminService.totalPaidToAgents(),
+                adminService.totalReferralUser(),
+                adminService.totalPaidToReferralUser(),
                 adminService.totalLatestWithdrawalRequest(),
                 adminService.totalOrdersCompleted(),
             ]);
 
             res.status(SuccessStatusCode.OPERATION_SUCCESSFUL).json({
-                totalNumberOfAgents,
-                activeReferralCodes,
-                totalPaidToAgents,
+                totalReferralUser,
+                totalPaidToReferralUser,
                 totalLatestWithdrawalRequest,
                 totalOrdersCompleted,
             });
@@ -58,7 +56,7 @@ const AdminController = {
         }
     },
 
-    async getMultipleAgent(req, res, next) {
+    async getMultipleReferralUsers(req, res, next) {
         try {
             const { page = 1, limit = 100, search = "" } = req.query;
 
@@ -75,18 +73,22 @@ const AdminController = {
                 );
             }
 
-            const agents = await adminService.getAgentsWithPageLimitSearch(
-                page,
-                limit,
+            const referralUsers =
+                await adminService.getReferralUserWithPageLimitSearch(
+                    page,
+                    limit,
+                    search
+                );
+
+            const totalReferralUser = await adminService.totalReferralUser(
                 search
             );
-            const totalAgents = await adminService.totalNumberOfAgents();
-            const totalPages = Math.ceil(totalAgents / limit);
+            const totalPages = Math.ceil(totalReferralUser / limit);
 
             return res.status(SuccessStatusCode.OPERATION_SUCCESSFUL).json({
-                agents,
-                rowCount: totalAgents,
-                totalPages,
+                referralUsers: referralUsers,
+                rowCount: totalReferralUser,
+                totalPages: totalPages,
             });
         } catch (error) {
             logger.error(
@@ -102,11 +104,11 @@ const AdminController = {
         }
     },
 
-    async getOneAgent(req, res, next) {
+    async getOneReferralUser(req, res, next) {
         try {
-            const { agentID } = req.params;
+            const { referralUserID } = req.params;
 
-            if (!objectIdValidation(agentID)) {
+            if (!objectIdValidation(referralUserID)) {
                 return next(
                     createHttpError(ErrorStatusCode.VALIDATION_INVALID_FORMAT, {
                         code: ErrorCodes.VALIDATION_INVALID_FORMAT,
@@ -115,19 +117,19 @@ const AdminController = {
                 );
             }
 
-            const agent = await adminService.getAgentDetailsById(agentID);
-            if (!agent) {
+            const referralUser = await adminService.getReferralUserById(referralUserID);
+            if (!referralUser) {
                 return next(
                     createHttpError(ErrorStatusCode.RESOURCE_NOT_FOUND, {
                         code: ErrorCodes.RESOURCE_NOT_FOUND,
-                        message: "Agent with this ID not found!",
+                        message: "Referral user with this ID not found!",
                     })
                 );
             }
 
             res.status(SuccessStatusCode.OPERATION_SUCCESSFUL).json({
                 success: true,
-                agent,
+                referralUser,
             });
         } catch (error) {
             logger.error(
@@ -143,58 +145,6 @@ const AdminController = {
         }
     },
 
-    async assignReferralCode(req, res, next) {
-        try {
-            const { agentID } = req.params;
-            const { quantity } = req.body;
-
-            if (!objectIdValidation(agentID)) {
-                return next(
-                    createHttpError(ErrorStatusCode.VALIDATION_INVALID_FORMAT, {
-                        code: ErrorCodes.VALIDATION_INVALID_FORMAT,
-                        message: "Query Invalidation Error!",
-                    })
-                );
-            }
-            const { error } = assingReferralCodeQuantity.validate(quantity);
-            if (error) {
-                return next(
-                    createHttpError(ErrorStatusCode.VALIDATION_INVALID_FORMAT, {
-                        code: ErrorCodes.VALIDATION_INVALID_FORMAT,
-                        message: "Invalidation format!",
-                    })
-                );
-            }
-
-            const agent = await adminService.getAgentById(agentID);
-            if (!agent) {
-                return next(
-                    createHttpError(ErrorStatusCode.RESOURCE_NOT_FOUND, {
-                        code: ErrorCodes.RESOURCE_NOT_FOUND,
-                        message: "Agent not found!",
-                    })
-                );
-            }
-
-            await adminService.assignReferralCodeToAgent(agentID, quantity);
-
-            return res.status(SuccessStatusCode.RESOURCE_CREATED).json({
-                success: true,
-                message: "Referral codes created successfully",
-            });
-        } catch (error) {
-            logger.error(
-                `Failed to allot refer code: ${error.message}, Error stack: ${error.stack}`
-            );
-
-            return next(
-                createHttpError(ErrorStatusCode.SERVER_DATABASE_ERROR, {
-                    code: ErrorCodes.SERVER_DATABASE_ERROR,
-                    message: "Internal Server Error",
-                })
-            );
-        }
-    },
 
     async processWithdrawalRequest(req, res, next) {
         try {
@@ -256,59 +206,59 @@ const AdminController = {
             );
         }
     },
+    
+    // async agentAccountStatusChange(req, res, next) {
+    //     try {
+    //         const { accountStatus, agentID } = req.params;
 
-    async agentAccountStatusChange(req, res, next) {
-        try {
-            const { accountStatus, agentID } = req.params;
+    //         if (!objectIdValidation(agentID)) {
+    //             return next(
+    //                 createHttpError(ErrorStatusCode.VALIDATION_INVALID_FORMAT, {
+    //                     code: ErrorCodes.VALIDATION_INVALID_FORMAT,
+    //                     message: "Query Invalidation Error!",
+    //                 })
+    //             );
+    //         }
+    //         const { error } = agentAccountStatus.validate(accountStatus);
+    //         if (error) {
+    //             return next(
+    //                 createHttpError(ErrorStatusCode.VALIDATION_INVALID_FORMAT, {
+    //                     code: ErrorCodes.VALIDATION_INVALID_FORMAT,
+    //                     message: "Query Invalidation Error!",
+    //                 })
+    //             );
+    //         }
 
-            if (!objectIdValidation(agentID)) {
-                return next(
-                    createHttpError(ErrorStatusCode.VALIDATION_INVALID_FORMAT, {
-                        code: ErrorCodes.VALIDATION_INVALID_FORMAT,
-                        message: "Query Invalidation Error!",
-                    })
-                );
-            }
-            const { error } = agentAccountStatus.validate(accountStatus);
-            if (error) {
-                return next(
-                    createHttpError(ErrorStatusCode.VALIDATION_INVALID_FORMAT, {
-                        code: ErrorCodes.VALIDATION_INVALID_FORMAT,
-                        message: "Query Invalidation Error!",
-                    })
-                );
-            }
+    //         if (accountStatus === "deactivate") {
+    //             await deactivateAgentAccount(agentID);
+    //         } else if (accountStatus === "activate") {
+    //             await activateAgentAccount(agentID);
+    //         } else {
+    //             next(
+    //                 createHttpError(ErrorStatusCode.RESOURCE_NOT_FOUND, {
+    //                     code: ErrorCodes.RESOURCE_NOT_FOUND,
+    //                     message: "Provided action is inavalid!",
+    //                 })
+    //             );
+    //         }
 
-            if (accountStatus === "deactivate") {
-                await deactivateAgentAccount(agentID);
-            } else if (accountStatus === "activate") {
-                await activateAgentAccount(agentID);
-            } else {
-                next(
-                    createHttpError(ErrorStatusCode.RESOURCE_NOT_FOUND, {
-                        code: ErrorCodes.RESOURCE_NOT_FOUND,
-                        message: "Provided action is inavalid!",
-                    })
-                );
-            }
+    //         res.status(SuccessStatusCode.OPERATION_SUCCESSFUL).json({
+    //             success: true,
+    //             message: `${accountStatus} action is successfuly completed!`,
+    //         });
+    //     } catch (error) {
+    //         logger.error(
+    //             `Error in taking action on agent account: ${error.message}, Error stack: ${error.stack}`
+    //         );
 
-            res.status(SuccessStatusCode.OPERATION_SUCCESSFUL).json({
-                success: true,
-                message: `${accountStatus} action is successfuly completed!`,
-            });
-        } catch (error) {
-            logger.error(
-                `Error in taking action on agent account: ${error.message}, Error stack: ${error.stack}`
-            );
-
-            return next(
-                createHttpError(ErrorStatusCode.SERVER_DATABASE_ERROR, {
-                    code: ErrorCodes.SERVER_DATABASE_ERROR,
-                    message: "Internal Server Error",
-                })
-            );
-        }
-    },
+    //         return next(
+    //             createHttpError(ErrorStatusCode.SERVER_DATABASE_ERROR, {
+    //                 code: ErrorCodes.SERVER_DATABASE_ERROR,
+    //                 message: "Internal Server Error",
+    //             })
+    //         );
+    //     }
+    // },
 };
 
 export default AdminController;
