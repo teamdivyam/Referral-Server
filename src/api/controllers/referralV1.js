@@ -11,6 +11,7 @@ import ReferralEventModel from "../../db/models/ReferralEventsV1.js";
 import UserModel from "../../db/models/user.js";
 import ReferralWithdrawalModel from "../../db/models/ReferralWithdrawalV1.js";
 import mongoose from "mongoose";
+import { BankValidation } from "../validators/referral.js";
 
 const referralController = {
     createReferralUser: async (req, res, next) => {
@@ -104,7 +105,9 @@ const referralController = {
         try {
             const { referralCode, refereeId, orderId } = req.query;
 
-            const referralUser = await ReferralUserModelV1.findOne({ referralCode });
+            const referralUser = await ReferralUserModelV1.findOne({
+                referralCode,
+            });
 
             if (!user || user.accountStatus === "deactive") {
                 return next(
@@ -178,11 +181,10 @@ const referralController = {
             referralUser.wallet.balance =
                 referralUser.wallet.balance - newReferralWithdrawal.amount;
             referralUser.wallet.pendingWithdrawal =
-                referralUser.wallet.pendingWithdrawal + newReferralWithdrawal.amount;
+                referralUser.wallet.pendingWithdrawal +
+                newReferralWithdrawal.amount;
 
-            referralUser.wallet.withdrawals.push(
-                newReferralWithdrawal._id
-            );
+            referralUser.wallet.withdrawals.push(newReferralWithdrawal._id);
 
             await referralUser.save();
 
@@ -195,6 +197,73 @@ const referralController = {
 
             logger.error(
                 `Error in initating withdrawal: ${error.message}, Error stack: ${error.stack}`
+            );
+
+            return next(
+                createHttpError(ErrorStatusCode.SERVER_DATABASE_ERROR, {
+                    code: ErrorCodes.SERVER_DATABASE_ERROR,
+                    message: "Internal Server Error",
+                })
+            );
+        }
+    },
+
+    addBankAccount: async (req, res, next) => {
+        try {
+            const { userID } = req.params;
+            const { bankName, accountHolderName, accountNumber, codeIFSC } =
+                req.body;
+
+            const { error } = BankValidation.validate(req.body);
+            if (error) {
+                return next(
+                    createHttpError(ErrorStatusCode.VALIDATION_INVALID_FORMAT, {
+                        code: ErrorCodes.VALIDATION_INVALID_FORMAT,
+                        message: "Validation error",
+                    })
+                );
+            }
+
+            const referralUser = await ReferralUserModelV1.findOne({
+                user: userID,
+            });
+
+            if (!referralUser) {
+                return next(
+                    createHttpError(ErrorStatusCode.RESOURCE_NOT_FOUND, {
+                        code: ErrorCodes.RESOURCE_NOT_FOUND,
+                        message: "User is not exists!",
+                    })
+                );
+            }
+
+            const isMatchAccountNo = referralUser.wallet.accounts.find(
+                (account) => account.accountNumber === accountNumber
+            );
+            if (isMatchAccountNo) {
+                return next(
+                    createHttpError(ErrorStatusCode.RESOURCE_ALREADY_EXISTS, {
+                        code: ErrorCodes.RESOURCE_ALREADY_EXISTS,
+                        message: "Account already exists!",
+                    })
+                );
+            }
+
+            referralUser.wallet.accounts.push({
+                bankName,
+                accountHolderName,
+                accountNumber,
+                codeIFSC,
+            });
+
+            await referralUser.save();
+
+            res.status(SuccessStatusCode.OPERATION_SUCCESSFUL).json({
+                success: true,
+            });
+        } catch (error) {
+            logger.error(
+                `Error in adding bank account: ${error.message}, Error stack: ${error.stack}`
             );
 
             return next(
