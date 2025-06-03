@@ -103,13 +103,13 @@ const referralController = {
 
     createReferralEvent: async (req, res, next) => {
         try {
-            const { referralCode, refereeId, orderId } = req.query;
+            const { referralCode, refereeId, orderId, amount } = req.query;
 
             const referralUser = await ReferralUserModelV1.findOne({
                 referralCode,
             });
 
-            if (!user || user.accountStatus === "deactive") {
+            if (!referralUser || referralUser.accountStatus === "deactive") {
                 return next(
                     createHttpError(ErrorStatusCode.RESOURCE_NOT_FOUND, {
                         code: ErrorCodes.RESOURCE_NOT_FOUND,
@@ -123,11 +123,12 @@ const referralController = {
                 referee: refereeId,
                 referralCode: referralUser.referralCode,
                 orderId: orderId,
+                amount: Number(amount),
             });
 
             referralUser.referralEvents.push(newReferralEvent._id);
 
-            await user.save();
+            await referralUser.save();
 
             res.status(SuccessStatusCode.OPERATION_SUCCESSFUL).json({
                 success: true,
@@ -270,6 +271,48 @@ const referralController = {
                 createHttpError(ErrorStatusCode.SERVER_DATABASE_ERROR, {
                     code: ErrorCodes.SERVER_DATABASE_ERROR,
                     message: "Internal Server Error",
+                })
+            );
+        }
+    },
+
+    async setBankAccountPrimary(req, res, next) {
+        try {
+            const { userID } = req.params;
+            const { bankAccountID } = req.query;
+
+            const referralUser = await ReferralUserModelV1.findOne({
+                user: userID,
+            });
+
+            if (!referralUser) {
+                return next(
+                    createHttpError(ErrorStatusCode.RESOURCE_NOT_FOUND, {
+                        code: ErrorCodes.RESOURCE_NOT_FOUND,
+                        message: "User is not exists!",
+                    })
+                );
+            }
+
+            referralUser.wallet.accounts.forEach((account) => {
+                account.isPrimary = account._id.equals(bankAccountID);
+            });
+
+            await referralUser.save();
+
+            res.status(SuccessStatusCode.RESOURCE_UPDATED).json({
+                success: true,
+                message: "Bank account updated successfully",
+            });
+        } catch (error) {
+            logger.error(
+                `Failed to set bank account primary: ${error.message}, Error stack: ${error.stack}`
+            );
+
+            return next(
+                createHttpError(ErrorStatusCode.SERVER_DATABASE_ERROR, {
+                    code: ErrorCodes.SERVER_DATABASE_ERROR,
+                    message: error.message,
                 })
             );
         }
