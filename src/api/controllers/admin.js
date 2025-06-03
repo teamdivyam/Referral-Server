@@ -8,8 +8,8 @@ import {
     SuccessStatusCode,
 } from "../../utils/constant.js";
 import {
-    activateAgentAccount,
-    deactivateAgentAccount,
+    activateAccount,
+    deactivateAccount,
     findWithdrawalRequestById,
 } from "../service/admin.js";
 import {
@@ -207,58 +207,58 @@ const AdminController = {
         }
     },
     
-    // async agentAccountStatusChange(req, res, next) {
-    //     try {
-    //         const { accountStatus, agentID } = req.params;
+    async changeReferralUserAccountStatus(req, res, next) {
+        try {
+            const { accountStatus, referralUserID } = req.params;
 
-    //         if (!objectIdValidation(agentID)) {
-    //             return next(
-    //                 createHttpError(ErrorStatusCode.VALIDATION_INVALID_FORMAT, {
-    //                     code: ErrorCodes.VALIDATION_INVALID_FORMAT,
-    //                     message: "Query Invalidation Error!",
-    //                 })
-    //             );
-    //         }
-    //         const { error } = agentAccountStatus.validate(accountStatus);
-    //         if (error) {
-    //             return next(
-    //                 createHttpError(ErrorStatusCode.VALIDATION_INVALID_FORMAT, {
-    //                     code: ErrorCodes.VALIDATION_INVALID_FORMAT,
-    //                     message: "Query Invalidation Error!",
-    //                 })
-    //             );
-    //         }
+            if (!objectIdValidation(referralUserID)) {
+                return next(
+                    createHttpError(ErrorStatusCode.VALIDATION_INVALID_FORMAT, {
+                        code: ErrorCodes.VALIDATION_INVALID_FORMAT,
+                        message: "Query Invalidation Error!",
+                    })
+                );
+            }
+            const { error } = agentAccountStatus.validate(accountStatus);
+            if (error) {
+                return next(
+                    createHttpError(ErrorStatusCode.VALIDATION_INVALID_FORMAT, {
+                        code: ErrorCodes.VALIDATION_INVALID_FORMAT,
+                        message: "Query Invalidation Error!",
+                    })
+                );
+            }
 
-    //         if (accountStatus === "deactivate") {
-    //             await deactivateAgentAccount(agentID);
-    //         } else if (accountStatus === "activate") {
-    //             await activateAgentAccount(agentID);
-    //         } else {
-    //             next(
-    //                 createHttpError(ErrorStatusCode.RESOURCE_NOT_FOUND, {
-    //                     code: ErrorCodes.RESOURCE_NOT_FOUND,
-    //                     message: "Provided action is inavalid!",
-    //                 })
-    //             );
-    //         }
+            if (accountStatus === "deactive") {
+                await deactivateAccount(referralUserID);
+            } else if (accountStatus === "active") {
+                await activateAccount(referralUserID);
+            } else {
+                return next(
+                    createHttpError(ErrorStatusCode.RESOURCE_NOT_FOUND, {
+                        code: ErrorCodes.RESOURCE_NOT_FOUND,
+                        message: "Provided action is inavalid!",
+                    })
+                );
+            }
 
-    //         res.status(SuccessStatusCode.OPERATION_SUCCESSFUL).json({
-    //             success: true,
-    //             message: `${accountStatus} action is successfuly completed!`,
-    //         });
-    //     } catch (error) {
-    //         logger.error(
-    //             `Error in taking action on agent account: ${error.message}, Error stack: ${error.stack}`
-    //         );
+            res.status(SuccessStatusCode.OPERATION_SUCCESSFUL).json({
+                success: true,
+                message: `${accountStatus} action is successfuly completed!`,
+            });
+        } catch (error) {
+            logger.error(
+                `Error in taking action on agent account: ${error.message}, Error stack: ${error.stack}`
+            );
 
-    //         return next(
-    //             createHttpError(ErrorStatusCode.SERVER_DATABASE_ERROR, {
-    //                 code: ErrorCodes.SERVER_DATABASE_ERROR,
-    //                 message: "Internal Server Error",
-    //             })
-    //         );
-    //     }
-    // },
+            return next(
+                createHttpError(ErrorStatusCode.SERVER_DATABASE_ERROR, {
+                    code: ErrorCodes.SERVER_DATABASE_ERROR,
+                    message: "Internal Server Error",
+                })
+            );
+        }
+    },
 };
 
 export default AdminController;

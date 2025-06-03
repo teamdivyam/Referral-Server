@@ -118,7 +118,7 @@ const adminService = {
         try {
             const referralUser = await ReferralUserModelV1.findById(
                 referralUserID
-            ).populate("user wallet.withdrawals");
+            ).populate("user wallet.withdrawals referralEvents");
 
             return referralUser;
         } catch (error) {
@@ -209,11 +209,11 @@ export const findWithdrawalRequestById = async (withdrawalId) => {
     }
 };
 
-export const deactivateAgentAccount = async (agentId) => {
+export const deactivateAccount = async (referralUserID) => {
     try {
-        await AgentModel.findByIdAndUpdate(agentId, {
+        await ReferralUserModelV1.findByIdAndUpdate(referralUserID, {
             $set: {
-                accountStatus: "deactivate",
+                accountStatus: "deactive",
             },
         });
     } catch (error) {
@@ -221,11 +221,11 @@ export const deactivateAgentAccount = async (agentId) => {
     }
 };
 
-export const activateAgentAccount = async (agentId) => {
+export const activateAccount = async (referralUserID) => {
     try {
-        await AgentModel.findByIdAndUpdate(agentId, {
+        await ReferralUserModelV1.findByIdAndUpdate(referralUserID, {
             $set: {
-                accountStatus: "activate",
+                accountStatus: "active",
             },
         });
     } catch (error) {
