@@ -19,6 +19,7 @@ const ReferralEventSchema = new mongoose.Schema(
             enum: ["pending", "completed", "refund"],
             default: "pending",
         },
+        amount: { type: Number, required: true },
     },
     {
         timestamps: true,
