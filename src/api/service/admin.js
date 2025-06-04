@@ -199,7 +199,7 @@ export default adminService;
 
 export const findWithdrawalRequestById = async (withdrawalId) => {
     try {
-        const withdrawalRequest = await ReferralUserModelV1.findById(
+        const withdrawalRequest = await ReferralWithdrawalModel.findById(
             withdrawalId
         );
 
