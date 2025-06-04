@@ -198,7 +198,7 @@ const referralController = {
 
                 return res.json({
                     success: false,
-                    message: "Add your bank account!"
+                    message: "Your balance is less than requested amount!"
                 });
             }
             // Check if requested amount is less than min. withdrawal
