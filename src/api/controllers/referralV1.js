@@ -11,7 +11,11 @@ import ReferralEventModel from "../../db/models/ReferralEventsV1.js";
 import UserModel from "../../db/models/user.js";
 import ReferralWithdrawalModel from "../../db/models/ReferralWithdrawalV1.js";
 import mongoose from "mongoose";
-import { AmountValidation, BankValidation, objectIdValidation } from "../validators/referral.js";
+import {
+    AmountValidation,
+    BankValidation,
+    objectIdValidation,
+} from "../validators/referral.js";
 
 const referralController = {
     createReferralUser: async (req, res, next) => {
@@ -72,7 +76,7 @@ const referralController = {
 
             const user = await ReferralUserModelV1.findOne({
                 user: userID,
-            }).populate("user");
+            }).populate("user wallet.withdrawals");
 
             if (!user) {
                 return next(
@@ -187,7 +191,7 @@ const referralController = {
 
                 return res.json({
                     success: false,
-                    message: "Add your bank account!"
+                    message: "Add your bank account!",
                 });
             }
 
@@ -198,7 +202,7 @@ const referralController = {
 
                 return res.json({
                     success: false,
-                    message: "Your balance is less than requested amount!"
+                    message: "Your balance is less than requested amount!",
                 });
             }
             // Check if requested amount is less than min. withdrawal
@@ -208,13 +212,20 @@ const referralController = {
 
                 return res.json({
                     success: false,
-                    message: `Request amount is less than min. withdrawal ${MIN_WITHDRAWAL_AMOUNT}`
+                    message: `Request amount is less than min. withdrawal ${MIN_WITHDRAWAL_AMOUNT}`,
                 });
             }
+            const primaryBank = referralUser.wallet.accounts.find(account => account.isPrimary);
 
             const newWithdrawal = await ReferralWithdrawalModel.insertOne({
                 referralUserId: referralUser._id,
                 amount: Number(amount),
+                bank: {
+                    name: primaryBank.bankName,
+                    accountHolderName: primaryBank.accountHolderName,
+                    accountNumber: primaryBank.accountNumber,
+                    codeIFSC: primaryBank.codeIFSC,
+                }
             });
 
             // Update referral user wallet
@@ -227,7 +238,6 @@ const referralController = {
             res.status(SuccessStatusCode.OPERATION_SUCCESSFUL).json({
                 success: true,
             });
-
         } catch (error) {
             await session.abortTransaction();
             session.endSession();
@@ -284,6 +294,17 @@ const referralController = {
                         message: "Account already exists!",
                     })
                 );
+            }
+
+            // Make this account primary if it is first account attached to referral user
+            if (referralUser.wallet.accounts.length === 0) {
+                referralUser.wallet.accounts.push({
+                    bankName,
+                    accountHolderName,
+                    accountNumber,
+                    codeIFSC,
+                    isPrimary: true,
+                });
             }
 
             referralUser.wallet.accounts.push({
