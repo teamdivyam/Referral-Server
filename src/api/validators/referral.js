@@ -1,4 +1,5 @@
 import Joi from "joi";
+import mongoose from "mongoose";
 
 export const BankValidation = Joi.object({
   bankName: Joi.string().required(),
@@ -13,3 +14,9 @@ export const BankValidation = Joi.object({
     }),
   codeIFSC: Joi.string().required(),
 });
+
+export const objectIdValidation = (id) => {
+    return mongoose.Types.ObjectId.isValid(id);
+};
+
+export const AmountValidation = Joi.number();
