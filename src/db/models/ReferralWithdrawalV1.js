@@ -18,7 +18,31 @@ const ReferralWithdrawalSchema = new mongoose.Schema(
         },
         remarks: {
             type: String,
-            default: null
+            default: null,
+        },
+        bank: {
+            name: {
+                type: String,
+                required: true,
+            },
+            accountHolderName: {
+                type: String,
+                required: true,
+            },
+            accountNumber: {
+                type: String,
+                required: true,
+            },
+            codeIFSC: {
+                type: String,
+                required: true,
+            },
+        },
+        paidAt: {
+            type: Date,
+        },
+        transactionRef: {
+            type: String,
         }
     },
     {
