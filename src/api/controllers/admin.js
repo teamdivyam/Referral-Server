@@ -14,12 +14,10 @@ import {
 } from "../service/admin.js";
 import {
     agentAccountStatus,
-    assingReferralCodeQuantity,
     objectIdValidation,
     processWithdrawalValidation,
     validatePageLimitSearch,
 } from "../validators/admin.js";
-import UserModel from "../../db/models/user.js";
 
 const AdminController = {
     async getDashboardAnalytics(req, res, next) {
