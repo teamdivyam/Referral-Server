@@ -11,7 +11,7 @@ import ReferralEventModel from "../../db/models/ReferralEventsV1.js";
 import UserModel from "../../db/models/user.js";
 import ReferralWithdrawalModel from "../../db/models/ReferralWithdrawalV1.js";
 import mongoose from "mongoose";
-import { BankValidation } from "../validators/referral.js";
+import { AmountValidation, BankValidation, objectIdValidation } from "../validators/referral.js";
 
 const referralController = {
     createReferralUser: async (req, res, next) => {
@@ -154,44 +154,80 @@ const referralController = {
         session.startTransaction();
 
         try {
-            const { userID } = req.params;
-            const { amount } = req.body;
+            const { userID = null } = req.params;
+            const { amount = null } = req.body;
+
+            const { error } = AmountValidation.validate(amount);
+            if (error || !objectIdValidation(userID)) {
+                return next(
+                    createHttpError(ErrorStatusCode.VALIDATION_INVALID_FORMAT, {
+                        code: ErrorCodes.VALIDATION_INVALID_FORMAT,
+                        message: "Invalidation error",
+                    })
+                );
+            }
 
             const referralUser = await ReferralUserModelV1.findOne({
                 user: userID,
             });
 
-            if (referralUser.wallet.balance < MIN_WITHDRAWAL_AMOUNT) {
-                await session.abortTransaction();
-                session.endSession();
-
+            if (!referralUser) {
                 return next(
-                    createHttpError(ErrorStatusCode.INSUFFECIENT_BALANCE, {
-                        code: ErrorCodes.INSUFFECIENT_BALANCE,
-                        message: "Insuffecient Balance",
+                    createHttpError(ErrorStatusCode.RESOURCE_NOT_FOUND, {
+                        code: ErrorCodes.RESOURCE_NOT_FOUND,
+                        message: "User with this ID not found!",
                     })
                 );
             }
 
-            const newReferralWithdrawal =
-                await ReferralWithdrawalModel.insertOne({
-                    referralUserId: referralUser._id,
-                    amount: amount,
+            // Check if any bank is attached to referral user
+            if (referralUser.wallet.accounts.length === 0) {
+                await session.abortTransaction();
+                session.endSession();
+
+                return res.json({
+                    success: false,
+                    message: "Add your bank account!"
                 });
+            }
 
-            referralUser.wallet.balance =
-                referralUser.wallet.balance - newReferralWithdrawal.amount;
-            referralUser.wallet.pendingWithdrawal =
-                referralUser.wallet.pendingWithdrawal +
-                newReferralWithdrawal.amount;
+            // Check if balance is less than requested amount
+            if (referralUser.wallet.balance < Number(amount)) {
+                await session.abortTransaction();
+                session.endSession();
 
-            referralUser.wallet.withdrawals.push(newReferralWithdrawal._id);
+                return res.json({
+                    success: false,
+                    message: "Add your bank account!"
+                });
+            }
+            // Check if requested amount is less than min. withdrawal
+            if (Number(amount) < MIN_WITHDRAWAL_AMOUNT) {
+                await session.abortTransaction();
+                session.endSession();
+
+                return res.json({
+                    success: false,
+                    message: `Request amount is less than min. withdrawal ${MIN_WITHDRAWAL_AMOUNT}`
+                });
+            }
+
+            const newWithdrawal = await ReferralWithdrawalModel.insertOne({
+                referralUserId: referralUser._id,
+                amount: Number(amount),
+            });
+
+            // Update referral user wallet
+            referralUser.wallet.balance -= newWithdrawal.amount;
+            referralUser.wallet.pendingWithdrawal += newWithdrawal.amount;
+            referralUser.wallet.withdrawals.push(newWithdrawal._id);
 
             await referralUser.save();
 
             res.status(SuccessStatusCode.OPERATION_SUCCESSFUL).json({
                 success: true,
             });
+
         } catch (error) {
             await session.abortTransaction();
             session.endSession();
