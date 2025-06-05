@@ -6,43 +6,40 @@ mongoose
     .then(() => console.log("Connected to MongoDB"))
     .catch((err) => console.error("MongoDB connection error:", err));
 
+let orderId = 0;
 
-const QUANTITY = 10;
+const products = [
+    {productId: "PRD-18976", quantity: 15, price: 125000},
+    {productId: "PRD-87212", quantity: 12, price: 175000},
+    {productId: "PRD-29123", quantity: 20, price: 155000},
+]
 
-const orders = [];
+function Order() {
+    orderId += 1;
 
-for (let i = 0; i < QUANTITY; i++) {
-  orders.push({
-    orderId: `ord-${i + 1}`,
-    customer: `67e799c7b91f88d82f8f28e${i}`,
-    product: {
-      productId: "123",
-      quantity: Math.floor(Math.random() * 10),
-      price: 20000,
-    },
-    orderStatus: Math.random() > 0.5 ? "Completed" : "Refunded",
-    payment: {
-      status: "Paid",
-      method: "upi",
-    },
-    totalAmount: 20000,
-  });
+    this.orderId = `ORD-${orderId}`;
+    this.customer = "6837047d62b5d0740ae1ede9";
+    this.booking = "6837047d62b5d0740ae1ede9";
+    this.product = products[Math.floor(Math.random() * 3)];
+    this.orderStatus = Math.random() > 0.5 ? "Completed" : "Refunded";
+    this.totalAmount = this.product.price + Math.floor(this.product.price * 0.18);
 }
 
-async function SeedOrderInDB() {
-  try {
-    // Clear existing data
-    await OrderModel.deleteMany({});
-    console.log("Database cleared");
+async function SeedOrderDatabase() {
+    try {
+        const orders = [];
 
-    await OrderModel.insertMany(orders);
-    console.log("Database seeded successfully");
-  } catch (error) {
-    console.log("Error in seeding database:", error);
-  } finally {
-    mongoose.connection.close();
-  }
+        for (let i = 0; i < 10; i++) {
+            const newOrder = new Order();
+            orders.push(newOrder);
+        }
+
+        await OrderModel.insertMany(orders);
+
+        console.log("Seed successfully");
+    } catch (error) {
+        throw new Error(error);
+    }
 }
 
-SeedOrderInDB();
-
+SeedOrderDatabase();
