@@ -12,14 +12,14 @@ ReferralRouterV1.post(
     "/create-referral-user/:userID",
     referralController.createReferralUser
 );
+ReferralRouterV1.post(
+    "/create-referral-event",
+    referralController.createReferralEvent
+);
 ReferralRouterV1.post("/withdrawal/:userID", referralController.withdrawal);
 ReferralRouterV1.post(
     "/add-bank-account/:userID",
     referralController.addBankAccount
-);
-ReferralRouterV1.patch(
-    "/create-referral-event",
-    referralController.createReferralEvent
 );
 ReferralRouterV1.patch(
     "/set-primary-account/:userID",

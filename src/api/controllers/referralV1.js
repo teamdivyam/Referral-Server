@@ -130,6 +130,7 @@ const referralController = {
                 amount: Number(amount),
             });
 
+            referralUser.wallet.pendingBalance += Number(newReferralEvent.amount);
             referralUser.referralEvents.push(newReferralEvent._id);
 
             await referralUser.save();
@@ -392,6 +393,7 @@ const referralController = {
 
             res.status(SuccessStatusCode.OPERATION_SUCCESSFUL).json({
                 success: true,
+                
             });
         } catch (error) {
             logger.error(
