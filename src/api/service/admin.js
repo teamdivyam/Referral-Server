@@ -168,11 +168,11 @@ const adminService = {
                     },
                     { session }
                 );
-                await AgentModel.findByIdAndUpdate(
-                    withdrawalRequest.agentId,
+                await ReferralUserModelV1.findByIdAndUpdate(
+                    withdrawalRequest.referralUserId,
                     {
                         $inc: {
-                            "wallet.pendingWithdrawalAmount":
+                            "wallet.pendingWithdrawal":
                                 -withdrawalRequest.amount,
                         },
                     },
