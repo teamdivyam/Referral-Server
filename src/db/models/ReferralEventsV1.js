@@ -13,10 +13,10 @@ const ReferralEventSchema = new mongoose.Schema(
             required: true,
         },
         referralCode: { type: String, required: true },
-        orderId: { type: mongoose.Schema.Types.ObjectId },
+        orderId: { type: mongoose.Schema.Types.ObjectId, ref: "Order" },
         status: {
             type: String,
-            enum: ["pending", "completed", "refund"],
+            enum: ["pending", "completed", "cancelled"],
             default: "pending",
         },
         amount: { type: Number, required: true },
