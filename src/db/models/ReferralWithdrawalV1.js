@@ -18,7 +18,6 @@ const ReferralWithdrawalSchema = new mongoose.Schema(
         },
         remarks: {
             type: String,
-            default: null,
         },
         bank: {
             name: {
