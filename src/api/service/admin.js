@@ -139,7 +139,7 @@ const adminService = {
                 await ReferralWithdrawalModel.findByIdAndUpdate(
                     withdrawalRequest._id,
                     {
-                        $set: { status: "approved" },
+                        $set: { status: "approved", remarks: remarks },
                     },
                     { session }
                 );
@@ -164,7 +164,7 @@ const adminService = {
                 await WithdrawalModel.findByIdAndUpdate(
                     withdrawalRequest._id,
                     {
-                        $set: { status: "rejected", remarks },
+                        $set: { status: "rejected", remarks: remarks },
                     },
                     { session }
                 );
