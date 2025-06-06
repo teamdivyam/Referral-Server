@@ -86,7 +86,7 @@ const adminService = {
     totalPaidToReferralUser: async () => {
         try {
             const result = await ReferralWithdrawalModel.aggregate([
-                { $match: { status: "completed" } },
+                { $match: { status: "approved" } },
                 {
                     $group: {
                         _id: null,

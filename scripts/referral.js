@@ -8,8 +8,6 @@ import ReferralEventModel from "../src/db/models/ReferralEventsV1.js";
 import ReferralUserModelV1 from "../src/db/models/ReferralUserV1.js";
 import OrderModel from "../src/db/models/order.js";
 
-console.log(process.env);
-
 (async () => {
     try {
         const db = await mongoose.connect(process.env.MONGODB_URI);

@@ -18,6 +18,7 @@ import {
     processWithdrawalValidation,
     validatePageLimitSearch,
 } from "../validators/admin.js";
+import ReferralWithdrawalModel from "../../db/models/ReferralWithdrawalV1.js";
 
 const AdminController = {
     async getDashboardAnalytics(req, res, next) {
@@ -115,7 +116,9 @@ const AdminController = {
                 );
             }
 
-            const referralUser = await adminService.getReferralUserById(referralUserID);
+            const referralUser = await adminService.getReferralUserById(
+                referralUserID
+            );
             if (!referralUser) {
                 return next(
                     createHttpError(ErrorStatusCode.RESOURCE_NOT_FOUND, {
@@ -143,6 +146,72 @@ const AdminController = {
         }
     },
 
+    async getWithdrawals(req, res, next) {
+        const LIMIT = 50;
+        try {
+            const { withdrawalType = "latest", page = 1 } = req.query;
+
+            let withdrawals, rows;
+
+            switch (withdrawalType) {
+                case "latest":
+                    withdrawals = await ReferralWithdrawalModel.find({
+                        status: "pending",
+                    })
+                        .populate("referralUserId")
+                        .sort({ updatedAt: -1 })
+                        .skip(LIMIT * (page - 1))
+                        .limit(LIMIT)
+                        .lean();
+                    rows = await ReferralWithdrawalModel.countDocuments({
+                        status: "pending",
+                    });
+                    break;
+
+                case "approved":
+                    withdrawals = await ReferralWithdrawalModel.find({
+                        status: "approved",
+                    })
+                        .sort({ updatedAt: -1 })
+                        .skip(LIMIT * (page - 1))
+                        .limit(LIMIT)
+                        .lean();
+                    rows = await ReferralWithdrawalModel.countDocuments({
+                        status: "approved",
+                    });
+                    break;
+
+                case "rejected":
+                    withdrawals = await ReferralWithdrawalModel.find({
+                        status: "rejected",
+                    })
+                        .sort({ updatedAt: -1 })
+                        .skip(LIMIT * (page - 1))
+                        .limit(LIMIT)
+                        .lean();
+                    rows = await ReferralWithdrawalModel.countDocuments({
+                        status: "rejected",
+                    });
+            }
+
+            return res.status(SuccessStatusCode.OPERATION_SUCCESSFUL).json({
+                withdrawals,
+                rows,
+                withdrawalType
+            });
+        } catch (error) {
+            logger.error(
+                `Error in getting latest withdrawal request: ${error.message}, Error stack: ${error.stack}`
+            );
+
+            return next(
+                createHttpError(ErrorStatusCode.SERVER_DATABASE_ERROR, {
+                    code: ErrorCodes.SERVER_DATABASE_ERROR,
+                    message: "Internal Server Error",
+                })
+            );
+        }
+    },
 
     async processWithdrawalRequest(req, res, next) {
         try {
@@ -204,7 +273,7 @@ const AdminController = {
             );
         }
     },
-    
+
     async changeReferralUserAccountStatus(req, res, next) {
         try {
             const { accountStatus, referralUserID } = req.params;
