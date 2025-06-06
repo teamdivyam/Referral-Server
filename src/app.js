@@ -20,6 +20,7 @@ const allowedOrigins = [
   process.env.ORIGIN1,
   process.env.ORIGIN2,
   "http://localhost:3000",
+  "http://localhost:5173",
 ];
 
 const corsOptions = {
