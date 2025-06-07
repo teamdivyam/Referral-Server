@@ -21,6 +21,7 @@ const allowedOrigins = [
   process.env.ORIGIN2,
   "http://localhost:3000",
   "http://localhost:5173",
+  "https://divyam-com.vercel.app/"
 ];
 
 const corsOptions = {
