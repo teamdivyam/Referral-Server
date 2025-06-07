@@ -1,15 +1,11 @@
 import mongoose from "mongoose";
-import AgentModel from "../../db/models/agent.js";
-import ReferralModel from "../../db/models/referral.js";
 import WithdrawalModel from "../../db/models/withdrawal.js";
-import generateReferralCodeList from "../../utils/generateReferralCode.js";
-import NotificationTemplate from "../../utils/notificationTemplate.js";
-import { createNotification } from "./notification.js";
 import logger from "../../logging/index.js";
 import ReferralUserModelV1 from "../../db/models/ReferralUserV1.js";
 import ReferralWithdrawalModel from "../../db/models/ReferralWithdrawalV1.js";
 import ReferralEventModel from "../../db/models/ReferralEventsV1.js";
 import UserModel from "../../db/models/user.js";
+import TransactionModel from "../../db/models/transaction.js";
 
 const adminService = {
     getReferralUserWithPageLimitSearch: async (page, limit, search) => {
@@ -126,20 +122,33 @@ const adminService = {
         }
     },
 
-    processWithdrawalRequest: async (
+    processWithdrawalRequest: async ({
         processType,
+        transactionId,
         remarks,
-        withdrawalRequest
-    ) => {
+        withdrawalRequest,
+    }) => {
         const session = await mongoose.startSession();
         session.startTransaction();
 
         try {
             if (processType === "approved") {
+                const newTransaction = await TransactionModel.insertOne({
+                    transactionId,
+                    withdrawalId: withdrawalRequest._id,
+                    amount: withdrawalRequest.amount,
+                    date: new Date() + 5,
+                });
+
                 await ReferralWithdrawalModel.findByIdAndUpdate(
                     withdrawalRequest._id,
                     {
-                        $set: { status: "approved", remarks: remarks },
+                        $set: {
+                            status: "approved",
+                            remarks: remarks,
+                            transactionRef: newTransaction._id,
+                            paidAt: new Date(),
+                        },
                     },
                     { session }
                 );
@@ -149,8 +158,7 @@ const adminService = {
                         $inc: {
                             "wallet.pendingWithdrawal":
                                 -withdrawalRequest.amount,
-                            "wallet.totalEarning":
-                                withdrawalRequest.amount,
+                            "wallet.totalEarning": withdrawalRequest.amount,
                         },
                     },
                     { session }

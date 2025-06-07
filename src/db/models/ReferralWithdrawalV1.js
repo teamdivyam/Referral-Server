@@ -41,8 +41,9 @@ const ReferralWithdrawalSchema = new mongoose.Schema(
             type: Date,
         },
         transactionRef: {
-            type: String,
-        }
+            type: mongoose.Schema.Types.ObjectId,
+            ref: "referraltransaction"
+        },
     },
     {
         timestamps: true,

@@ -19,6 +19,7 @@ import {
     validatePageLimitSearch,
 } from "../validators/admin.js";
 import ReferralWithdrawalModel from "../../db/models/ReferralWithdrawalV1.js";
+import TransactionModel from "../../db/models/transaction.js";
 
 const AdminController = {
     async getDashboardAnalytics(req, res, next) {
@@ -158,7 +159,6 @@ const AdminController = {
                     withdrawals = await ReferralWithdrawalModel.find({
                         status: "pending",
                     })
-                        .populate("referralUserId")
                         .sort({ updatedAt: -1 })
                         .skip(LIMIT * (page - 1))
                         .limit(LIMIT)
@@ -197,7 +197,7 @@ const AdminController = {
             return res.status(SuccessStatusCode.OPERATION_SUCCESSFUL).json({
                 withdrawals,
                 rows,
-                withdrawalType
+                withdrawalType,
             });
         } catch (error) {
             logger.error(
@@ -216,7 +216,7 @@ const AdminController = {
     async processWithdrawalRequest(req, res, next) {
         try {
             const { processType, withdrawalID } = req.params;
-            const { remarks = null } = req.body;
+            const { transactionId = null, remarks = null } = req.body;
 
             if (!objectIdValidation(withdrawalID)) {
                 return next(
@@ -244,11 +244,12 @@ const AdminController = {
             );
 
             if (withdrawalRequest && withdrawalRequest.status === "pending") {
-                const message = await adminService.processWithdrawalRequest(
+                const message = await adminService.processWithdrawalRequest({
                     processType,
+                    transactionId,
                     remarks,
-                    withdrawalRequest
-                );
+                    withdrawalRequest,
+                });
 
                 return res.status(SuccessStatusCode.OPERATION_SUCCESSFUL).json({
                     success: true,
