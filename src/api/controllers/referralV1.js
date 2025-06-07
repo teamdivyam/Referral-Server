@@ -130,7 +130,9 @@ const referralController = {
                 amount: Number(amount),
             });
 
-            referralUser.wallet.pendingBalance += Number(newReferralEvent.amount);
+            referralUser.wallet.pendingBalance += Number(
+                newReferralEvent.amount
+            );
             referralUser.referralEvents.push(newReferralEvent._id);
 
             await referralUser.save();
@@ -216,7 +218,9 @@ const referralController = {
                     message: `Request amount is less than min. withdrawal ${MIN_WITHDRAWAL_AMOUNT}`,
                 });
             }
-            const primaryBank = referralUser.wallet.accounts.find(account => account.isPrimary);
+            const primaryBank = referralUser.wallet.accounts.find(
+                (account) => account.isPrimary
+            );
 
             const newWithdrawal = await ReferralWithdrawalModel.insertOne({
                 referralUserId: referralUser._id,
@@ -226,7 +230,7 @@ const referralController = {
                     accountHolderName: primaryBank.accountHolderName,
                     accountNumber: primaryBank.accountNumber,
                     codeIFSC: primaryBank.codeIFSC,
-                }
+                },
             });
 
             // Update referral user wallet
@@ -306,14 +310,14 @@ const referralController = {
                     codeIFSC,
                     isPrimary: true,
                 });
+            } else {
+                referralUser.wallet.accounts.push({
+                    bankName,
+                    accountHolderName,
+                    accountNumber,
+                    codeIFSC,
+                });
             }
-
-            referralUser.wallet.accounts.push({
-                bankName,
-                accountHolderName,
-                accountNumber,
-                codeIFSC,
-            });
 
             await referralUser.save();
 
@@ -393,7 +397,6 @@ const referralController = {
 
             res.status(SuccessStatusCode.OPERATION_SUCCESSFUL).json({
                 success: true,
-                
             });
         } catch (error) {
             logger.error(
