@@ -18,8 +18,8 @@ import {
     processWithdrawalValidation,
     validatePageLimitSearch,
 } from "../validators/admin.js";
-import ReferralWithdrawalModel from "../../db/models/ReferralWithdrawalV1.js";
-import TransactionModel from "../../db/models/transaction.js";
+import WithdrawalModel from "../../db/models/ReferralWithdrawalV1.js";
+import ReferralEventModel from "../../db/models/ReferralEventsV1.js";
 
 const AdminController = {
     async getDashboardAnalytics(req, res, next) {
@@ -156,40 +156,40 @@ const AdminController = {
 
             switch (withdrawalType) {
                 case "latest":
-                    withdrawals = await ReferralWithdrawalModel.find({
+                    withdrawals = await WithdrawalModel.find({
                         status: "pending",
                     })
                         .sort({ updatedAt: -1 })
                         .skip(LIMIT * (page - 1))
                         .limit(LIMIT)
                         .lean();
-                    rows = await ReferralWithdrawalModel.countDocuments({
+                    rows = await WithdrawalModel.countDocuments({
                         status: "pending",
                     });
                     break;
 
                 case "approved":
-                    withdrawals = await ReferralWithdrawalModel.find({
+                    withdrawals = await WithdrawalModel.find({
                         status: "approved",
                     })
                         .sort({ updatedAt: -1 })
                         .skip(LIMIT * (page - 1))
                         .limit(LIMIT)
                         .lean();
-                    rows = await ReferralWithdrawalModel.countDocuments({
+                    rows = await WithdrawalModel.countDocuments({
                         status: "approved",
                     });
                     break;
 
                 case "rejected":
-                    withdrawals = await ReferralWithdrawalModel.find({
+                    withdrawals = await WithdrawalModel.find({
                         status: "rejected",
                     })
                         .sort({ updatedAt: -1 })
                         .skip(LIMIT * (page - 1))
                         .limit(LIMIT)
                         .lean();
-                    rows = await ReferralWithdrawalModel.countDocuments({
+                    rows = await WithdrawalModel.countDocuments({
                         status: "rejected",
                     });
             }
@@ -317,6 +317,151 @@ const AdminController = {
         } catch (error) {
             logger.error(
                 `Error in taking action on agent account: ${error.message}, Error stack: ${error.stack}`
+            );
+
+            return next(
+                createHttpError(ErrorStatusCode.SERVER_DATABASE_ERROR, {
+                    code: ErrorCodes.SERVER_DATABASE_ERROR,
+                    message: "Internal Server Error",
+                })
+            );
+        }
+    },
+
+    getReferralOverTime: async (req, res, next) => {
+        try {
+            const { defineTime = "last7Days" } = req.query;
+
+            let referralEventData;
+            let referralOverTimeData = [];
+
+            const cDate = new Date();
+            let pDate = new Date(cDate);
+            switch (defineTime) {
+                case "last7Days":
+                    pDate.setDate(cDate.getDate() - 7);
+                    referralEventData = await ReferralEventModel.find({
+                        createdAt: {
+                            $gte: pDate.toISOString(),
+                            $lt: cDate.toISOString(),
+                        },
+                    });
+                    for (let i = pDate.getDate(); i < cDate.getDate(); i++) {
+                        referralOverTimeData.push({ day: i, referral: 0 });
+                    }
+                    for (let i = 0; i < referralOverTimeData.length; i++) {
+                        const dateToFilter = referralOverTimeData[i].day;
+
+                        referralEventData.forEach((res) => {
+                            const getDate = new Date(res.createdAt).getDate();
+
+                            if (getDate === dateToFilter) {
+                                referralOverTimeData[i].referral += 1;
+                            }
+                        });
+                    }
+                    break;
+
+                case "thisMonth":
+                    pDate.setDate(1);
+                    referralEventData = await ReferralEventModel.find({
+                        createdAt: {
+                            $gte: pDate.toISOString(),
+                            $lt: cDate.toISOString(),
+                        },
+                    });
+                    for (let i = pDate.getDate(); i < cDate.getDate(); i++) {
+                        referralOverTimeData.push({ day: i, referral: 0 });
+                    }
+                    for (let i = 0; i < referralOverTimeData.length; i++) {
+                        const dateToFilter = referralOverTimeData[i].day;
+
+                        referralEventData.forEach((res) => {
+                            const getDate = new Date(res.createdAt).getDate();
+
+                            if (getDate === dateToFilter) {
+                                referralOverTimeData[i].referral += 1;
+                            }
+                        });
+                    }
+                    break;
+
+                case "lastMonth":
+                    pDate.setDate(cDate.getDate() - cDate.getDate() - 30);
+                    cDate.setDate(0);
+                    referralEventData = await ReferralEventModel.find({
+                        createdAt: {
+                            $gte: pDate.toISOString(),
+                            $lt: cDate.toISOString(),
+                        },
+                    });
+                    for (let i = pDate.getDate(); i < cDate.getDate(); i++) {
+                        referralOverTimeData.push({ day: i, referral: 0 });
+                    }
+                    for (let i = 0; i < referralOverTimeData.length; i++) {
+                        const dateToFilter = referralOverTimeData[i].day;
+
+                        referralEventData.forEach((res) => {
+                            const getDate = new Date(res.createdAt).getDate();
+
+                            if (getDate === dateToFilter) {
+                                referralOverTimeData[i].referral += 1;
+                            }
+                        });
+                    }
+                    break;
+            }
+
+            res.json({
+                success: true,
+                referralOverTimeData,
+                defineTime,
+            });
+        } catch (error) {
+            logger.error(
+                `Error in verify referral code: ${error.message}, Error stack: ${error.stack}`
+            );
+
+            return next(
+                createHttpError(ErrorStatusCode.SERVER_DATABASE_ERROR, {
+                    code: ErrorCodes.SERVER_DATABASE_ERROR,
+                    message: "Internal Server Error",
+                })
+            );
+        }
+    },
+
+    getLatestPayout: async (req, res, next) => {
+        const LIMIT = 10;
+        try {
+            const { page = 1 } = req.query;
+            const latestPayout = await WithdrawalModel.find({
+                $or: [
+                    { status: "approved" },
+                    { status: "rejected" },
+                    { status: "paid" },
+                ],
+            })
+                .sort({ updatedAt: -1 })
+                .skip((page - 1) * LIMIT)
+                .limit(LIMIT);
+
+            const rows = await WithdrawalModel.countDocuments({
+                $or: [
+                    { status: "approved" },
+                    { status: "rejected" },
+                    { status: "paid" },
+                ],
+            });
+
+            res.json({
+                success: true,
+                latestPayout,
+                rows,
+            });
+        } catch (error) {
+            logger.error(
+                `Error in getting latest payout: ${error.message}, Error stack: ${error.stack}`
             );
 
             return next(

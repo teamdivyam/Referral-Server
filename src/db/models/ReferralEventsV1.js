@@ -20,9 +20,11 @@ const ReferralEventSchema = new mongoose.Schema(
             default: "pending",
         },
         amount: { type: Number, required: true },
+        createdAt: { type: Date },
+        updatedAt: { type: Date },
     },
     {
-        timestamps: true,
+        timestamps: false,
     }
 );
 

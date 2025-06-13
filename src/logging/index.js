@@ -1,6 +1,9 @@
 import devLogger from "./devLogger.js";
 import uatLogger from "./uatLogger.js";
 import productionLogger from "./productionLogger.js";
+import { config } from "dotenv";
+
+config();
 
 let logger = null;
 

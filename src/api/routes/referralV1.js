@@ -4,6 +4,8 @@ import referralController from "../controllers/referralV1.js";
 const ReferralRouterV1 = express.Router();
 
 ReferralRouterV1.get("/user/:userID", referralController.user);
+ReferralRouterV1.get("/user-referral/:userID", referralController.userReferral);
+ReferralRouterV1.get("/wallet/:userID", referralController.userWallet);
 ReferralRouterV1.get(
     "/verify-referral-code",
     referralController.isReferralCodeValid
@@ -25,6 +27,5 @@ ReferralRouterV1.patch(
     "/set-primary-account/:userID",
     referralController.setBankAccountPrimary
 );
-
 
 export default ReferralRouterV1;

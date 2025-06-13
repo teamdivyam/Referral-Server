@@ -1,6 +1,7 @@
 import express from "express";
-import AuthController from "../controllers/agentAuth.js";
 import AdminAuthController from "../controllers/adminAuth.js";
+// import AuthController from "../controllers/agentAuth.js";
+
 const AuthRouter = express.Router();
 
 // AuthRouter.post("/login", AuthController.login);

@@ -5,7 +5,6 @@ import ReferralUserModelV1 from "../../db/models/ReferralUserV1.js";
 import ReferralWithdrawalModel from "../../db/models/ReferralWithdrawalV1.js";
 import ReferralEventModel from "../../db/models/ReferralEventsV1.js";
 import UserModel from "../../db/models/user.js";
-import TransactionModel from "../../db/models/transaction.js";
 
 const adminService = {
     getReferralUserWithPageLimitSearch: async (page, limit, search) => {
@@ -133,21 +132,14 @@ const adminService = {
 
         try {
             if (processType === "approved") {
-                const newTransaction = await TransactionModel.insertOne({
-                    transactionId,
-                    withdrawalId: withdrawalRequest._id,
-                    amount: withdrawalRequest.amount,
-                    date: new Date() + 5,
-                });
-
                 await ReferralWithdrawalModel.findByIdAndUpdate(
                     withdrawalRequest._id,
                     {
                         $set: {
                             status: "approved",
                             remarks: remarks,
-                            transactionRef: newTransaction._id,
-                            paidAt: new Date(),
+                            processedAt: new Date(),
+                            transactionId: transactionId,
                         },
                     },
                     { session }
@@ -172,7 +164,7 @@ const adminService = {
                 await WithdrawalModel.findByIdAndUpdate(
                     withdrawalRequest._id,
                     {
-                        $set: { status: "rejected", remarks: remarks },
+                        $set: { status: "rejected", remarks: remarks, processedAt: new Date() },
                     },
                     { session }
                 );

@@ -1,23 +1,21 @@
 import mongoose from "mongoose";
 
-const ReferralWithdrawalSchema = new mongoose.Schema(
+const WithdrawalSchema = new mongoose.Schema(
     {
-        referralUserId: {
+        user: {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: "User",
+            required: true,
+        },
+        referralUser: {
             type: mongoose.Schema.Types.ObjectId,
             ref: "referraluser",
+            required: true,
         },
         amount: {
             type: Number,
             required: true,
             min: 5000,
-        },
-        status: {
-            type: String,
-            enum: ["pending", "approved", "rejected"],
-            default: "pending",
-        },
-        remarks: {
-            type: String,
         },
         bank: {
             name: {
@@ -37,12 +35,24 @@ const ReferralWithdrawalSchema = new mongoose.Schema(
                 required: true,
             },
         },
-        paidAt: {
-            type: Date,
+        status: {
+            type: String,
+            enum: ["pending", "approved", "rejected", "paid"],
+            default: "pending",
         },
-        transactionRef: {
-            type: mongoose.Schema.Types.ObjectId,
-            ref: "referraltransaction"
+        transactionId: {
+            type: String,
+            default: null,
+        },
+        remarks: {
+            type: String,
+        },
+        requestedAt: {
+            type: Date,
+            required: true,
+        },
+        processedAt: {
+            type: Date,
         },
     },
     {
@@ -51,9 +61,9 @@ const ReferralWithdrawalSchema = new mongoose.Schema(
     }
 );
 
-const ReferralWithdrawalModel = mongoose.model(
+const WithdrawalModel = mongoose.model(
     "referralwithdrawal",
-    ReferralWithdrawalSchema
+    WithdrawalSchema
 );
 
-export default ReferralWithdrawalModel;
+export default WithdrawalModel;
