@@ -2,6 +2,7 @@ import express from "express";
 import cors from "cors";
 import cookieParser from "cookie-parser";
 import compression from "compression";
+import { configDotenv } from "dotenv";
 
 // import AgentRouter from "./api/routes/agent.js";
 // import passport, { refreshTokenMiddleware } from "./config/passport.js";
@@ -13,7 +14,10 @@ import AdminRouter from "./api/routes/admin.js";
 import logger from "./logging/index.js";
 import adminAuth from "./api/middlewares/adminAuth.js";
 import ReferralRouterV1 from "./api/routes/referralV1.js";
+import { authenticateUser, registerUser } from "./api/controllers/officeUserAuth.controller.js";
+import { officeUserAuthMiddleware } from "./api/middlewares/officeUserAuth.js";
 
+configDotenv();
 const app = express();
 
 const allowedOrigins = [
@@ -46,11 +50,16 @@ app.use((req, res, next) => {
     logger.info(`Incoming request: ${req.method} ${req.url}`);
     next();
 });
+// app.use(officeUserAuthMiddleware);
+// app.set("trust proxy", true);
 
 // Routers
 app.use("/api/referral/auth", AuthRouter);
 app.use("/api/referral/admin", adminAuth, AdminRouter);
 app.use("/api/referral", ReferralRouterV1);
+
+// app.post('/auth/signup', registerUser);
+// app.post('/auth/login', authenticateUser);
 
 // Unkown routes error handler
 app.use("*", (req, res) => {

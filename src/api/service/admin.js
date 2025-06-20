@@ -1,8 +1,7 @@
 import mongoose from "mongoose";
-import WithdrawalModel from "../../db/models/withdrawal.js";
 import logger from "../../logging/index.js";
 import ReferralUserModelV1 from "../../db/models/ReferralUserV1.js";
-import ReferralWithdrawalModel from "../../db/models/ReferralWithdrawalV1.js";
+import WithdrawalModel from "../../db/models/ReferralWithdrawalV1.js";
 import ReferralEventModel from "../../db/models/ReferralEventsV1.js";
 import UserModel from "../../db/models/user.js";
 
@@ -68,7 +67,7 @@ const adminService = {
 
     totalLatestWithdrawalRequest: async () => {
         try {
-            const result = await ReferralWithdrawalModel.countDocuments({
+            const result = await WithdrawalModel.countDocuments({
                 status: "pending",
             });
 
@@ -80,7 +79,7 @@ const adminService = {
 
     totalPaidToReferralUser: async () => {
         try {
-            const result = await ReferralWithdrawalModel.aggregate([
+            const result = await WithdrawalModel.aggregate([
                 { $match: { status: "approved" } },
                 {
                     $group: {
@@ -132,7 +131,7 @@ const adminService = {
 
         try {
             if (processType === "approved") {
-                await ReferralWithdrawalModel.findByIdAndUpdate(
+                await WithdrawalModel.findByIdAndUpdate(
                     withdrawalRequest._id,
                     {
                         $set: {
@@ -145,7 +144,7 @@ const adminService = {
                     { session }
                 );
                 await ReferralUserModelV1.findByIdAndUpdate(
-                    withdrawalRequest.referralUserId,
+                    withdrawalRequest.referralUser,
                     {
                         $inc: {
                             "wallet.pendingWithdrawal":
@@ -164,12 +163,16 @@ const adminService = {
                 await WithdrawalModel.findByIdAndUpdate(
                     withdrawalRequest._id,
                     {
-                        $set: { status: "rejected", remarks: remarks, processedAt: new Date() },
+                        $set: {
+                            status: "rejected",
+                            remarks: remarks,
+                            processedAt: new Date(),
+                        },
                     },
                     { session }
                 );
                 await ReferralUserModelV1.findByIdAndUpdate(
-                    withdrawalRequest.referralUserId,
+                    withdrawalRequest.referralUser,
                     {
                         $inc: {
                             "wallet.pendingWithdrawal":
@@ -193,15 +196,84 @@ const adminService = {
             throw error;
         }
     },
+
+    findWithdrawalUsingSearchTerm: async ({
+        withdrawalType,
+        page,
+        search,
+        fromDate,
+        toDate,
+        limit,
+    }) => {
+        try {
+            const dateRange =
+                withdrawalType === "latest"
+                    ? { created: { $gte: toDate, $lt: fromDate } }
+                    : { processedAt: { $gte: toDate, $lt: fromDate } };
+            const result = await WithdrawalModel.aggregate([
+                {
+                    $lookup: {
+                        from: "users",
+                        localField: "user",
+                        foreignField: "_id",
+                        as: "user",
+                    },
+                },
+                {
+                    $unwind: "$user",
+                },
+                {
+                    $match: {
+                        status: withdrawalType,
+                        ...dateRange,
+                        "user.fullName": { $regex: search, $options: "i" },
+                    },
+                },
+                { $skip: limit * (page - 1) },
+                { $limit: limit },
+            ]);
+
+            return result;
+        } catch (error) {
+            throw error;
+        }
+    },
+
+    findWithdrawalCountUsingSearchTerm: async ({ withdrawalType, search }) => {
+        try {
+            const result = await WithdrawalModel.aggregate([
+                {
+                    $lookup: {
+                        from: "users",
+                        localField: "user",
+                        foreignField: "_id",
+                        as: "user",
+                    },
+                },
+                {
+                    $unwind: "$user",
+                },
+                {
+                    $match: {
+                        status: withdrawalType,
+                        "user.fullName": { $regex: search, $options: "i" },
+                    },
+                },
+                { $count: "total" },
+            ]);
+
+            return result[0]?.total || 0;
+        } catch (error) {
+            throw error;
+        }
+    },
 };
 
 export default adminService;
 
 export const findWithdrawalRequestById = async (withdrawalId) => {
     try {
-        const withdrawalRequest = await ReferralWithdrawalModel.findById(
-            withdrawalId
-        );
+        const withdrawalRequest = await WithdrawalModel.findById(withdrawalId);
 
         return withdrawalRequest;
     } catch (error) {

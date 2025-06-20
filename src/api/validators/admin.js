@@ -21,3 +21,4 @@ export const agentAccountStatus = Joi.string().valid(
     "active",
     "deactive"
 );
+

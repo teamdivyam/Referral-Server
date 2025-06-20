@@ -25,6 +25,7 @@ const adminAuth = async (req, res, next) => {
         const secretObject = jwt.verify(token, ACCESS_TOKEN_SECRET);
 
         const admin = await AdminModel.findById(secretObject._id);
+        req.admin = admin;
 
         if (admin) {
             return next();

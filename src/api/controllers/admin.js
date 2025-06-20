@@ -20,9 +20,10 @@ import {
 } from "../validators/admin.js";
 import WithdrawalModel from "../../db/models/ReferralWithdrawalV1.js";
 import ReferralEventModel from "../../db/models/ReferralEventsV1.js";
+import ReferralUserModelV1 from "../../db/models/ReferralUserV1.js";
 
 const AdminController = {
-    async getDashboardAnalytics(req, res, next) {
+    getDashboardAnalytics: async (req, res, next) => {
         try {
             const [
                 totalReferralUser,
@@ -56,7 +57,7 @@ const AdminController = {
         }
     },
 
-    async getMultipleReferralUsers(req, res, next) {
+    getMultipleReferralUsers: async (req, res, next) => {
         try {
             const { page = 1, limit = 100, search = "" } = req.query;
 
@@ -104,7 +105,7 @@ const AdminController = {
         }
     },
 
-    async getOneReferralUser(req, res, next) {
+    getOneReferralUser: async (req, res, next) => {
         try {
             const { referralUserID } = req.params;
 
@@ -147,51 +148,123 @@ const AdminController = {
         }
     },
 
-    async getWithdrawals(req, res, next) {
+    getWithdrawals: async (req, res, next) => {
         const LIMIT = 50;
         try {
-            const { withdrawalType = "latest", page = 1 } = req.query;
+            let {
+                withdrawalType = "latest",
+                page = 1,
+                search = "",
+                fromDate = new Date(0),
+                toDate = new Date(),
+            } = req.query;
 
             let withdrawals, rows;
 
+            fromDate = new Date(fromDate);
+            toDate = new Date(toDate);
+
             switch (withdrawalType) {
                 case "latest":
-                    withdrawals = await WithdrawalModel.find({
-                        status: "pending",
-                    })
-                        .sort({ updatedAt: -1 })
-                        .skip(LIMIT * (page - 1))
-                        .limit(LIMIT)
-                        .lean();
-                    rows = await WithdrawalModel.countDocuments({
-                        status: "pending",
-                    });
+                    if (search === "") {
+                        withdrawals = await WithdrawalModel.find({
+                            status: "pending",
+                            createdAt: {
+                                $gte: fromDate.toISOString(),
+                                $lte: toDate.toISOString(),
+                            }
+                        })
+                            .populate({ path: "user", select: "email" })
+                            .sort({ updatedAt: 1 })
+                            .skip(LIMIT * (page - 1))
+                            .limit(LIMIT)
+                            .lean();
+                        rows = await WithdrawalModel.countDocuments({
+                            status: "pending",
+                        });
+                    } else {
+                        withdrawals =
+                            await adminService.findWithdrawalUsingSearchTerm({
+                                withdrawalType,
+                                page,
+                                search,
+                                fromDate,
+                                toDate,
+                                limit: LIMIT,
+                            });
+                        rows =
+                            await adminService.findWithdrawalCountUsingSearchTerm(
+                                { withdrawalType, search }
+                            );
+                    }
                     break;
 
                 case "approved":
-                    withdrawals = await WithdrawalModel.find({
-                        status: "approved",
-                    })
-                        .sort({ updatedAt: -1 })
-                        .skip(LIMIT * (page - 1))
-                        .limit(LIMIT)
-                        .lean();
-                    rows = await WithdrawalModel.countDocuments({
-                        status: "approved",
-                    });
+                    if (search === "") {
+                        withdrawals = await WithdrawalModel.find({
+                            status: "approved",
+                            processedAt: {
+                                $gte: fromDate.toISOString(),
+                                $lte: toDate.toISOString(),
+                            }
+                        })
+                            .populate({ path: "user", select: "email" })
+                            .sort({ updatedAt: -1 })
+                            .skip(LIMIT * (page - 1))
+                            .limit(LIMIT)
+                            .lean();
+                        rows = await WithdrawalModel.countDocuments({
+                            status: "approved",
+                        });
+                    } else {
+                        withdrawals =
+                            await adminService.findWithdrawalUsingSearchTerm({
+                                withdrawalType,
+                                page,
+                                search,
+                                fromDate,
+                                toDate,
+                                limit: LIMIT,
+                            });
+                        rows =
+                            await adminService.findWithdrawalCountUsingSearchTerm(
+                                { withdrawalType, search }
+                            );
+                    }
                     break;
 
                 case "rejected":
-                    withdrawals = await WithdrawalModel.find({
-                        status: "rejected",
-                    })
-                        .sort({ updatedAt: -1 })
-                        .skip(LIMIT * (page - 1))
-                        .limit(LIMIT)
-                        .lean();
-                    rows = await WithdrawalModel.countDocuments({
-                        status: "rejected",
-                    });
+                    if (search === "") {
+                        withdrawals = await WithdrawalModel.find({
+                            status: "rejected",
+                            processedAt: {
+                                $gte: fromDate.toISOString(),
+                                $lte: toDate.toISOString(),
+                            }
+                        })
+                            .populate({ path: "user", select: "email" })
+                            .sort({ updatedAt: -1 })
+                            .skip(LIMIT * (page - 1))
+                            .limit(LIMIT)
+                            .lean();
+                        rows = await WithdrawalModel.countDocuments({
+                            status: "rejected",
+                        });
+                    } else {
+                        withdrawals =
+                            await adminService.findWithdrawalUsingSearchTerm({
+                                withdrawalType,
+                                page,
+                                search,
+                                fromDate,
+                                toDate,
+                                limit: LIMIT,
+                            });
+                        rows =
+                            await adminService.findWithdrawalCountUsingSearchTerm(
+                                { withdrawalType, search }
+                            );
+                    }
             }
 
             return res.status(SuccessStatusCode.OPERATION_SUCCESSFUL).json({
@@ -213,7 +286,37 @@ const AdminController = {
         }
     },
 
-    async processWithdrawalRequest(req, res, next) {
+    getReferralUserBalance: async (req, res, next) => {
+        try {
+            const { referralUserId } = req.query;
+
+            const userInfo = await ReferralUserModelV1.findById(referralUserId)
+                .select(
+                    "user wallet.balance wallet.pendingBalance wallet.pendingWithdrawal wallet.totalEarning"
+                )
+                .populate({
+                    path: "user",
+                    select: "fullName",
+                });
+
+            res.json({
+                userInfo,
+            });
+        } catch (error) {
+            logger.error(
+                `Error in getting latest withdrawal request: ${error.message}, Error stack: ${error.stack}`
+            );
+
+            return next(
+                createHttpError(ErrorStatusCode.SERVER_DATABASE_ERROR, {
+                    code: ErrorCodes.SERVER_DATABASE_ERROR,
+                    message: "Internal Server Error",
+                })
+            );
+        }
+    },
+
+    processWithdrawalRequest: async (req, res, next) => {
         try {
             const { processType, withdrawalID } = req.params;
             const { transactionId = null, remarks = null } = req.body;
@@ -275,7 +378,7 @@ const AdminController = {
         }
     },
 
-    async changeReferralUserAccountStatus(req, res, next) {
+    changeReferralUserAccountStatus: async (req, res, next) => {
         try {
             const { accountStatus, referralUserID } = req.params;
 
@@ -432,7 +535,7 @@ const AdminController = {
     },
 
     getLatestPayout: async (req, res, next) => {
-        const LIMIT = 10;
+        const LIMIT = 7;
         try {
             const { page = 1 } = req.query;
             const latestPayout = await WithdrawalModel.find({

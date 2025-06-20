@@ -25,20 +25,28 @@ const referralController = {
             const user = await UserModel.findById(userID);
 
             if (!user) {
-                return next(
-                    createHttpError(ErrorStatusCode.RESOURCE_NOT_FOUND, {
-                        code: ErrorCodes.RESOURCE_NOT_FOUND,
-                        message: "User is not exists!",
-                    })
-                );
+                // return next(
+                //     createHttpError(ErrorStatusCode.RESOURCE_NOT_FOUND, {
+                //         code: ErrorCodes.RESOURCE_NOT_FOUND,
+                //         message: "User is not exists!",
+                //     })
+                // );
+                return res.json({
+                    success: false,
+                    message: "User doesn't exits with this ID",
+                });
             }
             if (user.refer.isReferrer) {
-                return next(
-                    createHttpError(ErrorStatusCode.RESOURCE_ALREADY_EXISTS, {
-                        code: ErrorCodes.RESOURCE_ALREADY_EXISTS,
-                        message: "User have already a referral Code!",
-                    })
-                );
+                // return next(
+                //     createHttpError(ErrorStatusCode.RESOURCE_ALREADY_EXISTS, {
+                //         code: ErrorCodes.RESOURCE_ALREADY_EXISTS,
+                //         message: "User have already a referral Code!",
+                //     })
+                // );
+                return res.json({
+                    success: false,
+                    message: "User already have a referral code",
+                });
             }
 
             const referralCode = generateReferralCode();
@@ -79,13 +87,17 @@ const referralController = {
             }).populate("user wallet.withdrawals");
 
             if (!user) {
-                return next(
-                    createHttpError(ErrorStatusCode.RESOURCE_NOT_FOUND, {
-                        code: ErrorCodes.RESOURCE_NOT_FOUND,
-                        message:
-                            "User is not registered for refer & earn program!",
-                    })
-                );
+                // return next(
+                //     createHttpError(ErrorStatusCode.RESOURCE_NOT_FOUND, {
+                //         code: ErrorCodes.RESOURCE_NOT_FOUND,
+                //         message:
+                //             "User is not registered for refer & earn program!",
+                //     })
+                // );
+                return res.json({
+                    success: false,
+                    message: "User doesn't exits with this ID",
+                });
             }
 
             res.status(SuccessStatusCode.OPERATION_SUCCESSFUL).json({
@@ -155,13 +167,17 @@ const referralController = {
                 });
 
             if (!user) {
-                return next(
-                    createHttpError(ErrorStatusCode.RESOURCE_NOT_FOUND, {
-                        code: ErrorCodes.RESOURCE_NOT_FOUND,
-                        message:
-                            "User is not registered for refer & earn program!",
-                    })
-                );
+                // return next(
+                //     createHttpError(ErrorStatusCode.RESOURCE_NOT_FOUND, {
+                //         code: ErrorCodes.RESOURCE_NOT_FOUND,
+                //         message:
+                //             "User is not registered for refer & earn program!",
+                //     })
+                // );
+                return res.json({
+                    success: false,
+                    message: "User doesn't exits with this ID",
+                });
             }
 
             res.status(SuccessStatusCode.OPERATION_SUCCESSFUL).json({
@@ -189,11 +205,18 @@ const referralController = {
                 referralCode,
             });
 
+            if (referralUser.user.equals(refereeId)) {
+                return res.json({
+                    success: false,
+                    message: "You cannot use your own referral code",
+                });
+            }
+
             if (!referralUser || referralUser.accountStatus === "deactive") {
                 return res.json({
                     success: false,
-                    message: "Invalid referral code"
-                })
+                    message: "Invalid referral code",
+                });
             }
 
             const newReferralEvent = await ReferralEventModel.insertOne({
@@ -230,6 +253,7 @@ const referralController = {
 
     withdrawal: async (req, res, next) => {
         const MIN_WITHDRAWAL_AMOUNT = 5000;
+        const MAX_WITHDRAWAL_LIMIT = 2;
 
         const session = await mongoose.startSession();
         session.startTransaction();
@@ -240,12 +264,16 @@ const referralController = {
 
             const { error } = AmountValidation.validate(amount);
             if (error || !objectIdValidation(userID)) {
-                return next(
-                    createHttpError(ErrorStatusCode.VALIDATION_INVALID_FORMAT, {
-                        code: ErrorCodes.VALIDATION_INVALID_FORMAT,
-                        message: "Invalidation error",
-                    })
-                );
+                // return next(
+                //     createHttpError(ErrorStatusCode.VALIDATION_INVALID_FORMAT, {
+                //         code: ErrorCodes.VALIDATION_INVALID_FORMAT,
+                //         message: "Invalidation error",
+                //     })
+                // );
+                return res.json({
+                    success: false,
+                    message: "Validation Error",
+                });
             }
 
             const referralUser = await ReferralUserModelV1.findOne({
@@ -253,12 +281,40 @@ const referralController = {
             });
 
             if (!referralUser) {
-                return next(
-                    createHttpError(ErrorStatusCode.RESOURCE_NOT_FOUND, {
-                        code: ErrorCodes.RESOURCE_NOT_FOUND,
-                        message: "User with this ID not found!",
-                    })
-                );
+                // return next(
+                //     createHttpError(ErrorStatusCode.RESOURCE_NOT_FOUND, {
+                //         code: ErrorCodes.RESOURCE_NOT_FOUND,
+                //         message: "User with this ID not found!",
+                //     })
+                // );
+                return res.json({
+                    success: false,
+                    message: "User doesn't exits with this ID",
+                });
+            }
+
+            const lowerTimeAbsolute =
+                new Date().toISOString().slice(0, 10) + "T00:00:00.000Z";
+
+            const upperTime = new Date();
+            upperTime.setDate(upperTime.getDate() + 1);
+            const upperTimeAbsolute =
+                upperTime.toISOString().slice(0, 10) + "T00:00:00.000Z";
+
+            const todayWithdrawalQuantity =
+                await WithdrawalModel.countDocuments({
+                    referralUser: referralUser._id,
+                    requestedAt: {
+                        $gte: lowerTimeAbsolute,
+                        $lt: upperTimeAbsolute,
+                    },
+                });
+
+            if (todayWithdrawalQuantity >= MAX_WITHDRAWAL_LIMIT) {
+                return res.json({
+                    success: false,
+                    message: "Withdrawal Request Limit is Reached!",
+                });
             }
 
             // Check if any bank is attached to referral user
@@ -344,12 +400,16 @@ const referralController = {
 
             const { error } = BankValidation.validate(req.body);
             if (error) {
-                return next(
-                    createHttpError(ErrorStatusCode.VALIDATION_INVALID_FORMAT, {
-                        code: ErrorCodes.VALIDATION_INVALID_FORMAT,
-                        message: "Validation error",
-                    })
-                );
+                // return next(
+                //     createHttpError(ErrorStatusCode.VALIDATION_INVALID_FORMAT, {
+                //         code: ErrorCodes.VALIDATION_INVALID_FORMAT,
+                //         message: "Validation error",
+                //     })
+                // );
+                return res.json({
+                    success: false,
+                    message: "Validation Error!",
+                });
             }
 
             const referralUser = await ReferralUserModelV1.findOne({
@@ -357,24 +417,32 @@ const referralController = {
             });
 
             if (!referralUser) {
-                return next(
-                    createHttpError(ErrorStatusCode.RESOURCE_NOT_FOUND, {
-                        code: ErrorCodes.RESOURCE_NOT_FOUND,
-                        message: "User is not exists!",
-                    })
-                );
+                // return next(
+                //     createHttpError(ErrorStatusCode.RESOURCE_NOT_FOUND, {
+                //         code: ErrorCodes.RESOURCE_NOT_FOUND,
+                //         message: "User is not exists!",
+                //     })
+                // );
+                return res.json({
+                    success: false,
+                    message: "User doesn't exits with this ID",
+                });
             }
 
             const isMatchAccountNo = referralUser.wallet.accounts.find(
                 (account) => account.accountNumber === accountNumber
             );
             if (isMatchAccountNo) {
-                return next(
-                    createHttpError(ErrorStatusCode.RESOURCE_ALREADY_EXISTS, {
-                        code: ErrorCodes.RESOURCE_ALREADY_EXISTS,
-                        message: "Account already exists!",
-                    })
-                );
+                // return next(
+                //     createHttpError(ErrorStatusCode.RESOURCE_ALREADY_EXISTS, {
+                //         code: ErrorCodes.RESOURCE_ALREADY_EXISTS,
+                //         message: "Account already exists!",
+                //     })
+                // );
+                return res.json({
+                    success: false,
+                    message: "Account already exits",
+                });
             }
 
             // Make this account primary if it is first account attached to referral user
@@ -485,8 +553,6 @@ const referralController = {
             );
         }
     },
-
-    
 };
 
 export default referralController;
