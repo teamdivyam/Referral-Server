@@ -101,6 +101,7 @@ const referralController = {
             }
 
             res.status(SuccessStatusCode.OPERATION_SUCCESSFUL).json({
+                success: true,
                 user,
             });
         } catch (error) {
