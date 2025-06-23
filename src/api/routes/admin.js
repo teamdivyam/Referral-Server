@@ -10,7 +10,9 @@ AdminRouter.get("/withdrawals", AdminController.getWithdrawals);
 AdminRouter.get("/balance", AdminController.getReferralUserBalance);
 AdminRouter.get("/referral-over-time", AdminController.getReferralOverTime);
 AdminRouter.get("/latest-payout", AdminController.getLatestPayout);
+AdminRouter.get("/cron/status", AdminController.getCronJobStatus);
 AdminRouter.patch("/process-withdrawal-request/:processType/:withdrawalID", AdminController.processWithdrawalRequest);
 AdminRouter.patch("/change-account-status/:accountStatus/:referralUserID", AdminController.changeReferralUserAccountStatus);
+AdminRouter.patch("/cron/:state", AdminController.controlCronJob);
 
 export default AdminRouter;

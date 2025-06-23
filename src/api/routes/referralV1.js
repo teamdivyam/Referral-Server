@@ -23,6 +23,7 @@ ReferralRouterV1.post(
     "/add-bank-account/:userID",
     referralController.addBankAccount
 );
+
 ReferralRouterV1.patch(
     "/set-primary-account/:userID",
     referralController.setBankAccountPrimary

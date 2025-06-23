@@ -21,6 +21,7 @@ import {
 import WithdrawalModel from "../../db/models/ReferralWithdrawalV1.js";
 import ReferralEventModel from "../../db/models/ReferralEventsV1.js";
 import ReferralUserModelV1 from "../../db/models/ReferralUserV1.js";
+import { cronJobStatus, referralScript } from "../../../scripts/referral.js";
 
 const AdminController = {
     getDashboardAnalytics: async (req, res, next) => {
@@ -565,6 +566,42 @@ const AdminController = {
         } catch (error) {
             logger.error(
                 `Error in getting latest payout: ${error.message}, Error stack: ${error.stack}`
+            );
+
+            return next(
+                createHttpError(ErrorStatusCode.SERVER_DATABASE_ERROR, {
+                    code: ErrorCodes.SERVER_DATABASE_ERROR,
+                    message: "Internal Server Error",
+                })
+            );
+        }
+    },
+
+    controlCronJob: async (req, res, next) => {
+        try {
+            const { state } = req.params;
+
+            await referralScript(res, state);
+        } catch (error) {
+            logger.error(
+                `Error in controlling cron job: ${error.message}, Error stack: ${error.stack}`
+            );
+
+            return next(
+                createHttpError(ErrorStatusCode.SERVER_DATABASE_ERROR, {
+                    code: ErrorCodes.SERVER_DATABASE_ERROR,
+                    message: "Internal Server Error",
+                })
+            );
+        }
+    },
+
+    getCronJobStatus: async (req, res, next) => {
+        try {
+            await cronJobStatus(res);
+        } catch (error) {
+            logger.error(
+                `Error in getting cron job status: ${error.message}, Error stack: ${error.stack}`
             );
 
             return next(
