@@ -18,7 +18,7 @@ export const processWithdrawalValidation = Joi.object({
 });
 
 export const agentAccountStatus = Joi.string().valid(
-    "active",
-    "deactive"
+    "activate",
+    "deactivate"
 );
 

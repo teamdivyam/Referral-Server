@@ -198,7 +198,7 @@ const adminService = {
     },
 
     findWithdrawalUsingSearchTerm: async ({
-        withdrawalType,
+        withdrawalStatus,
         page,
         search,
         fromDate,
@@ -207,9 +207,9 @@ const adminService = {
     }) => {
         try {
             const dateRange =
-                withdrawalType === "latest"
-                    ? { created: { $gte: toDate, $lt: fromDate } }
-                    : { processedAt: { $gte: toDate, $lt: fromDate } };
+                withdrawalStatus === "pending"
+                    ? { createdAt: { $gte: fromDate, $lt: toDate } }
+                    : { processedAt: { $gte: fromDate, $lt: toDate } };
             const result = await WithdrawalModel.aggregate([
                 {
                     $lookup: {
@@ -224,7 +224,7 @@ const adminService = {
                 },
                 {
                     $match: {
-                        status: withdrawalType,
+                        status: withdrawalStatus,
                         ...dateRange,
                         "user.fullName": { $regex: search, $options: "i" },
                     },
@@ -239,7 +239,7 @@ const adminService = {
         }
     },
 
-    findWithdrawalCountUsingSearchTerm: async ({ withdrawalType, search }) => {
+    findWithdrawalCountUsingSearchTerm: async ({ withdrawalStatus, search }) => {
         try {
             const result = await WithdrawalModel.aggregate([
                 {
@@ -255,7 +255,7 @@ const adminService = {
                 },
                 {
                     $match: {
-                        status: withdrawalType,
+                        status: withdrawalStatus,
                         "user.fullName": { $regex: search, $options: "i" },
                     },
                 },
@@ -283,11 +283,13 @@ export const findWithdrawalRequestById = async (withdrawalId) => {
 
 export const deactivateAccount = async (referralUserID) => {
     try {
-        await ReferralUserModelV1.findByIdAndUpdate(referralUserID, {
+        const a = await ReferralUserModelV1.findByIdAndUpdate(referralUserID, {
             $set: {
                 accountStatus: "deactive",
             },
         });
+
+        console.log("a:", a);
     } catch (error) {
         throw Error(error);
     }

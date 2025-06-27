@@ -16,6 +16,7 @@ import {
     BankValidation,
     objectIdValidation,
 } from "../validators/referral.js";
+import ReferralRuleModel from "../../db/models/ReferralRules.js";
 
 const referralController = {
     createReferralUser: async (req, res, next) => {
@@ -277,6 +278,8 @@ const referralController = {
                 });
             }
 
+            const referralRules = await ReferralRuleModel.findOne({});
+
             const referralUser = await ReferralUserModelV1.findOne({
                 user: userID,
             });
@@ -311,7 +314,7 @@ const referralController = {
                     },
                 });
 
-            if (todayWithdrawalQuantity >= MAX_WITHDRAWAL_LIMIT) {
+            if (todayWithdrawalQuantity >= referralRules.maxWithdrawalPerDay) {
                 return res.json({
                     success: false,
                     message: "Withdrawal Request Limit is Reached!",
@@ -340,7 +343,7 @@ const referralController = {
                 });
             }
             // Check if requested amount is less than min. withdrawal
-            if (Number(amount) < MIN_WITHDRAWAL_AMOUNT) {
+            if (Number(amount) < referralRules.minWithdrawalAmount) {
                 await session.abortTransaction();
                 session.endSession();
 
@@ -527,14 +530,23 @@ const referralController = {
 
     isReferralCodeValid: async (req, res, next) => {
         try {
-            const { referralCode } = req.query;
+            const { userID, referralCode } = req.query;
 
-            const isValid = await ReferralUserModelV1.findOne({ referralCode });
+            const validReferralCode = await ReferralUserModelV1.findOne({ referralCode });
 
-            if (!isValid) {
+            console.log("valid referral code:", validReferralCode);
+
+            if (!validReferralCode || validReferralCode.accountStatus === "deactive") {
                 return res.json({
                     success: false,
-                    message: "Referral Code is Invalid!",
+                    message: "Invalid referral code.",
+                });
+            }
+
+            if (validReferralCode.user.equals(userID)) {
+                return res.json({
+                    success: false,
+                    message: "User cannot apply their own referral code.",
                 });
             }
 

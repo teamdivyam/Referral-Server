@@ -22,6 +22,7 @@ import WithdrawalModel from "../../db/models/ReferralWithdrawalV1.js";
 import ReferralEventModel from "../../db/models/ReferralEventsV1.js";
 import ReferralUserModelV1 from "../../db/models/ReferralUserV1.js";
 import { cronJobStatus, referralScript } from "../../../scripts/referral.js";
+import ReferralRuleModel from "../../db/models/ReferralRules.js";
 
 const AdminController = {
     getDashboardAnalytics: async (req, res, next) => {
@@ -153,7 +154,7 @@ const AdminController = {
         const LIMIT = 50;
         try {
             let {
-                withdrawalType = "latest",
+                withdrawalStatus = "pending",
                 page = 1,
                 search = "",
                 fromDate = new Date(0),
@@ -165,15 +166,15 @@ const AdminController = {
             fromDate = new Date(fromDate);
             toDate = new Date(toDate);
 
-            switch (withdrawalType) {
-                case "latest":
+            switch (withdrawalStatus) {
+                case "pending":
                     if (search === "") {
                         withdrawals = await WithdrawalModel.find({
                             status: "pending",
                             createdAt: {
                                 $gte: fromDate.toISOString(),
                                 $lte: toDate.toISOString(),
-                            }
+                            },
                         })
                             .populate({ path: "user", select: "email" })
                             .sort({ updatedAt: 1 })
@@ -186,7 +187,7 @@ const AdminController = {
                     } else {
                         withdrawals =
                             await adminService.findWithdrawalUsingSearchTerm({
-                                withdrawalType,
+                                withdrawalStatus,
                                 page,
                                 search,
                                 fromDate,
@@ -195,7 +196,7 @@ const AdminController = {
                             });
                         rows =
                             await adminService.findWithdrawalCountUsingSearchTerm(
-                                { withdrawalType, search }
+                                { withdrawalStatus, search }
                             );
                     }
                     break;
@@ -207,7 +208,7 @@ const AdminController = {
                             processedAt: {
                                 $gte: fromDate.toISOString(),
                                 $lte: toDate.toISOString(),
-                            }
+                            },
                         })
                             .populate({ path: "user", select: "email" })
                             .sort({ updatedAt: -1 })
@@ -220,7 +221,7 @@ const AdminController = {
                     } else {
                         withdrawals =
                             await adminService.findWithdrawalUsingSearchTerm({
-                                withdrawalType,
+                                withdrawalStatus,
                                 page,
                                 search,
                                 fromDate,
@@ -229,7 +230,7 @@ const AdminController = {
                             });
                         rows =
                             await adminService.findWithdrawalCountUsingSearchTerm(
-                                { withdrawalType, search }
+                                { withdrawalStatus, search }
                             );
                     }
                     break;
@@ -241,7 +242,7 @@ const AdminController = {
                             processedAt: {
                                 $gte: fromDate.toISOString(),
                                 $lte: toDate.toISOString(),
-                            }
+                            },
                         })
                             .populate({ path: "user", select: "email" })
                             .sort({ updatedAt: -1 })
@@ -254,7 +255,7 @@ const AdminController = {
                     } else {
                         withdrawals =
                             await adminService.findWithdrawalUsingSearchTerm({
-                                withdrawalType,
+                                withdrawalStatus,
                                 page,
                                 search,
                                 fromDate,
@@ -263,7 +264,7 @@ const AdminController = {
                             });
                         rows =
                             await adminService.findWithdrawalCountUsingSearchTerm(
-                                { withdrawalType, search }
+                                { withdrawalStatus, search }
                             );
                     }
             }
@@ -271,7 +272,7 @@ const AdminController = {
             return res.status(SuccessStatusCode.OPERATION_SUCCESSFUL).json({
                 withdrawals,
                 rows,
-                withdrawalType,
+                withdrawalStatus,
             });
         } catch (error) {
             logger.error(
@@ -401,9 +402,9 @@ const AdminController = {
                 );
             }
 
-            if (accountStatus === "deactive") {
+            if (accountStatus === "deactivate") {
                 await deactivateAccount(referralUserID);
-            } else if (accountStatus === "active") {
+            } else if (accountStatus === "activate") {
                 await activateAccount(referralUserID);
             } else {
                 return next(
@@ -602,6 +603,83 @@ const AdminController = {
         } catch (error) {
             logger.error(
                 `Error in getting cron job status: ${error.message}, Error stack: ${error.stack}`
+            );
+
+            return next(
+                createHttpError(ErrorStatusCode.SERVER_DATABASE_ERROR, {
+                    code: ErrorCodes.SERVER_DATABASE_ERROR,
+                    message: "Internal Server Error",
+                })
+            );
+        }
+    },
+
+    getReferralSettings: async (req, res, next) => {
+        try {
+            const result = await ReferralRuleModel.findOne().select(
+                "-_id -createdAt -updatedAt"
+            );
+
+            res.json({
+                result,
+            });
+        } catch (error) {
+            logger.error(
+                `Error in getting referral settings: ${error.message}, Error stack: ${error.stack}`
+            );
+
+            return next(
+                createHttpError(ErrorStatusCode.SERVER_DATABASE_ERROR, {
+                    code: ErrorCodes.SERVER_DATABASE_ERROR,
+                    message: "Internal Server Error",
+                })
+            );
+        }
+    },
+
+    changeReferralSettings: async (req, res, next) => {
+        try {
+            const { name, value } = req.body;
+            const updateValue = {};
+            updateValue[name] = value;
+
+            await ReferralRuleModel.findOneAndUpdate({}, updateValue, {
+                upsert: false,
+            });
+
+            res.json({ success: true });
+        } catch (error) {
+            logger.error(
+                `Error in getting referral settings: ${error.message}, Error stack: ${error.stack}`
+            );
+
+            return next(
+                createHttpError(ErrorStatusCode.SERVER_DATABASE_ERROR, {
+                    code: ErrorCodes.SERVER_DATABASE_ERROR,
+                    message: "Internal Server Error",
+                })
+            );
+        }
+    },
+
+    updateReferralSchedule: async (req, res, next) => {
+        try {
+            const { schedule, scheduleTime } = req.body;
+
+            console.log(req.body);
+
+            await ReferralRuleModel.findOneAndUpdate(
+                {},
+                { referralScript: { schedule, scheduleTime } },
+                {
+                    upsert: false,
+                }
+            );
+
+            res.json({ success: true });
+        } catch (error) {
+            logger.error(
+                `Error in updating referral schedule: ${error.message}, Error stack: ${error.stack}`
             );
 
             return next(
