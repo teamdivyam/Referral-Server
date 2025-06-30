@@ -26,24 +26,12 @@ const referralController = {
             const user = await UserModel.findById(userID);
 
             if (!user) {
-                // return next(
-                //     createHttpError(ErrorStatusCode.RESOURCE_NOT_FOUND, {
-                //         code: ErrorCodes.RESOURCE_NOT_FOUND,
-                //         message: "User is not exists!",
-                //     })
-                // );
                 return res.json({
                     success: false,
                     message: "User doesn't exits with this ID",
                 });
             }
             if (user.refer.isReferrer) {
-                // return next(
-                //     createHttpError(ErrorStatusCode.RESOURCE_ALREADY_EXISTS, {
-                //         code: ErrorCodes.RESOURCE_ALREADY_EXISTS,
-                //         message: "User have already a referral Code!",
-                //     })
-                // );
                 return res.json({
                     success: false,
                     message: "User already have a referral code",
@@ -56,6 +44,8 @@ const referralController = {
                 user: userID,
                 referralCode,
             });
+
+            console.log(newReferralUser);
 
             user.refer.isReferrer = true;
             user.refer.referralId = newReferralUser._id;
@@ -222,11 +212,12 @@ const referralController = {
             }
 
             const newReferralEvent = await ReferralEventModel.insertOne({
-                referrer: referralUser._id,
-                referee: refereeId,
-                referralCode: referralUser.referralCode,
-                orderId: orderId,
-                amount: Number(amount),
+                referrer_id: referralUser._id,
+                referrer_user_id: referralUser.user,
+                referee_user_id: refereeId,
+                referral_code: referralUser.referralCode,
+                order: orderId,
+                amount: amount
             });
 
             referralUser.wallet.pendingBalance += Number(
@@ -533,8 +524,6 @@ const referralController = {
             const { userID, referralCode } = req.query;
 
             const validReferralCode = await ReferralUserModelV1.findOne({ referralCode });
-
-            console.log("valid referral code:", validReferralCode);
 
             if (!validReferralCode || validReferralCode.accountStatus === "deactive") {
                 return res.json({

@@ -690,6 +690,152 @@ const AdminController = {
             );
         }
     },
+
+    getReferral: async (req, res, next) => {
+        const LIMIT = 50;
+        try {
+            let {
+                referralStatus = "pending",
+                page = 1,
+                search = "",
+                fromDate = new Date(0),
+                toDate = new Date(),
+            } = req.query;
+
+            let referrals, rows;
+
+            fromDate = new Date(fromDate);
+            toDate = new Date(toDate);
+
+            switch (referralStatus) {
+                case "pending":
+                    if (search === "") {
+                        referrals = await ReferralEventModel.find({
+                            status: "pending",
+                            createdAt: {
+                                $gte: fromDate.toISOString(),
+                                $lte: toDate.toISOString(),
+                            },
+                        })
+                            .populate([
+                                { path: "referrer_user_id", select: "fullName mobileNum email" },
+                                { path: "referee_user_id", select: "fullName mobileNum email"  }
+                            ])
+                            .sort({ updatedAt: 1 })
+                            .skip(LIMIT * (page - 1))
+                            .limit(LIMIT)
+                            .lean();
+                        rows = await ReferralEventModel.countDocuments({
+                            status: "pending",
+                        });
+                    } else {
+                        // withdrawals =
+                        //     await adminService.findWithdrawalUsingSearchTerm({
+                        //         withdrawalStatus,
+                        //         page,
+                        //         search,
+                        //         fromDate,
+                        //         toDate,
+                        //         limit: LIMIT,
+                        //     });
+                        // rows =
+                        //     await adminService.findWithdrawalCountUsingSearchTerm(
+                        //         { withdrawalStatus, search }
+                        //     );
+                    }
+                    break;
+
+                case "completed":
+                    if (search === "") {
+                        referrals = await ReferralEventModel.find({
+                            status: "completed",
+                            createdAt: {
+                                $gte: fromDate.toISOString(),
+                                $lte: toDate.toISOString(),
+                            },
+                        })
+                            .populate([
+                                { path: "referrer_user_id", select: "fullName mobileNum email" },
+                                { path: "referee_user_id", select: "fullName mobileNum email"  }
+                            ])
+                            .sort({ updatedAt: 1 })
+                            .skip(LIMIT * (page - 1))
+                            .limit(LIMIT)
+                            .lean();
+                        rows = await ReferralEventModel.countDocuments({
+                            status: "completed",
+                        });
+                    } else {
+                        // withdrawals =
+                        //     await adminService.findWithdrawalUsingSearchTerm({
+                        //         withdrawalStatus,
+                        //         page,
+                        //         search,
+                        //         fromDate,
+                        //         toDate,
+                        //         limit: LIMIT,
+                        //     });
+                        // rows =
+                        //     await adminService.findWithdrawalCountUsingSearchTerm(
+                        //         { withdrawalStatus, search }
+                        //     );
+                    }
+                    break;
+
+                case "cancelled":
+                    if (search === "") {
+                        referrals = await ReferralEventModel.find({
+                            status: "cancelled",
+                            createdAt: {
+                                $gte: fromDate.toISOString(),
+                                $lte: toDate.toISOString(),
+                            },
+                        })
+                            .populate([
+                                { path: "referrer_user_id", select: "fullName mobileNum email" },
+                                { path: "referee_user_id", select: "fullName mobileNum email"  }
+                            ])
+                            .sort({ updatedAt: 1 })
+                            .skip(LIMIT * (page - 1))
+                            .limit(LIMIT)
+                            .lean();
+                        rows = await ReferralEventModel.countDocuments({
+                            status: "cancelled",
+                        });
+                    } else {
+                        // withdrawals =
+                        //     await adminService.findWithdrawalUsingSearchTerm({
+                        //         withdrawalStatus,
+                        //         page,
+                        //         search,
+                        //         fromDate,
+                        //         toDate,
+                        //         limit: LIMIT,
+                        //     });
+                        // rows =
+                        //     await adminService.findWithdrawalCountUsingSearchTerm(
+                        //         { withdrawalStatus, search }
+                        //     );
+                    }
+            }
+            return res.status(SuccessStatusCode.OPERATION_SUCCESSFUL).json({
+                referrals,
+                rows,
+                referralStatus,
+            });
+        } catch (error) {
+            logger.error(
+                `Error in retreiving referrals: ${error.message}, Error stack: ${error.stack}`
+            );
+
+            return next(
+                createHttpError(ErrorStatusCode.SERVER_DATABASE_ERROR, {
+                    code: ErrorCodes.SERVER_DATABASE_ERROR,
+                    message: "Internal Server Error",
+                })
+            );
+        }
+    },
 };
 
 export default AdminController;

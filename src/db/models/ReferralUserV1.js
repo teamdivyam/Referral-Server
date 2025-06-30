@@ -53,9 +53,11 @@ const ReferralUserSchemaV1 = new mongoose.Schema(
             unique: true,
             required: true,
         },
-        referralEvents: [
-            { type: mongoose.Schema.Types.ObjectId, ref: "referralevent" },
-        ],
+        referralEvents: {
+            type: [mongoose.Schema.Types.ObjectId],
+            ref: "referralevent",
+            default: [],
+        },
         wallet: {
             balance: {
                 type: Number,
@@ -70,7 +72,7 @@ const ReferralUserSchemaV1 = new mongoose.Schema(
             pendingWithdrawal: {
                 type: Number,
                 min: 0,
-                default: 0
+                default: 0,
             },
             totalEarning: {
                 type: Number,

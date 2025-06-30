@@ -1,32 +1,67 @@
 import mongoose from "mongoose";
+import CounterModel from "./ReferralCounter.js";
 
 const ReferralEventSchema = new mongoose.Schema(
     {
-        referrer: {
+        // Referral ID  
+        ref_id: {
+            type: String,
+            unique: true,
+        },
+        // Referral User ID of Referrer
+        referrer_id: {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: "referraluser"
+        },
+        // User ID of referrer
+        referrer_user_id: {
             type: mongoose.Schema.Types.ObjectId,
             ref: "User",
             required: true,
         },
-        referee: {
+        // User ID of referee
+        referee_user_id: {
             type: mongoose.Schema.Types.ObjectId,
             ref: "User",
             required: true,
         },
-        referralCode: { type: String, required: true },
-        orderId: { type: mongoose.Schema.Types.ObjectId, ref: "Order" },
+        referral_code: {
+            type: String,
+            required: true,
+        },
+        order: {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: "Order",
+        },
         status: {
             type: String,
             enum: ["pending", "completed", "cancelled"],
             default: "pending",
         },
-        amount: { type: Number, required: true },
-        createdAt: { type: Date },
-        updatedAt: { type: Date },
+        amount: {
+            type: Number,
+            required: true,
+        },
+        processed_at: {
+            type: Date,
+        },
     },
     {
-        timestamps: false,
+        timestamps: true,
     }
 );
+
+ReferralEventSchema.pre("save", async function (next) {
+    if (!this.referralId) {
+        const counter = await CounterModel.findByIdAndUpdate(
+            { _id: "referralEventId" },
+            { $inc: { seq: 1 } },
+            { new: true, upsert: true }
+        );
+        this.ref_id = `REF-${counter.seq}`;
+    }
+    next();
+});
 
 const ReferralEventModel = mongoose.model("referralevent", ReferralEventSchema);
 

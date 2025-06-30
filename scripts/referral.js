@@ -18,23 +18,27 @@ const jobFunction = async () => {
     lastExecutionTime = new Date();
 
     try {
-        // Retreive referral that is pending and populate order to check it is complete or not
+        /**
+         * Retreive referral events which has status 'pending'
+         * and populate order to check order status
+         */
         const pendingReferrals = await ReferralEventModel.find({
             status: "pending",
-        }).populate("orderId");
+        }).populate("order");
 
         for (const referral of pendingReferrals) {
             const session = await mongoose.startSession();
             session.startTransaction();
 
             try {
-                const orderStatus = referral.orderId.orderStatus;
+                const orderStatus = referral.order.orderStatus;
 
                 if (orderStatusType.completed.includes(orderStatus)) {
                     referral.status = "completed";
+                    referral.processed_at = new Date();
 
                     await ReferralUserModelV1.findByIdAndUpdate(
-                        referral.referrer,
+                        referral.referrer_id,
                         {
                             $inc: {
                                 "wallet.pendingBalance": -referral.amount,
@@ -48,9 +52,10 @@ const jobFunction = async () => {
 
                 if (orderStatusType.rejected.includes(orderStatus)) {
                     referral.status = "cancelled";
+                    referral.processed_at = new Date();
 
                     await ReferralUserModelV1.findByIdAndUpdate(
-                        referral.referrer,
+                        referral.referrer_id,
                         {
                             $inc: {
                                 "wallet.pendingBalance": -referral.amount,

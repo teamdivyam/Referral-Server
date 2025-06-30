@@ -14,8 +14,12 @@ import AdminRouter from "./api/routes/admin.js";
 import logger from "./logging/index.js";
 import adminAuth from "./api/middlewares/adminAuth.js";
 import ReferralRouterV1 from "./api/routes/referralV1.js";
-import { authenticateUser, registerUser } from "./api/controllers/officeUserAuth.controller.js";
+import {
+    authenticateUser,
+    registerUser,
+} from "./api/controllers/officeUserAuth.controller.js";
 import { officeUserAuthMiddleware } from "./api/middlewares/officeUserAuth.js";
+import CounterModel from "./db/models/ReferralCounter.js";
 
 configDotenv();
 const app = express();
@@ -52,6 +56,15 @@ app.use((req, res, next) => {
 });
 // app.use(officeUserAuthMiddleware);
 // app.set("trust proxy", true);
+
+// Initialize counter
+// (async () => {
+//     await CounterModel.findByIdAndUpdate(
+//         "referralEventId",
+//         { $set: { seq: 1000 } },
+//         { upsert: true }
+//     );
+// })();
 
 // Routers
 app.use("/api/referral/auth", AuthRouter);

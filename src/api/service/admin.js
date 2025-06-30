@@ -23,11 +23,9 @@ const adminService = {
                     populate: [
                         {
                             path: "referralEvents",
-                            model: "referralevent",
                         },
                         {
                             path: "wallet.withdrawals",
-                            model: "referralwithdrawal",
                         },
                     ],
                 })
@@ -35,6 +33,9 @@ const adminService = {
                 .skip(limit * (page - 1))
                 .limit(limit)
                 .lean();
+
+            console.log("referral u ser:", referralUsers);
+
 
             // Adding totalRefer and totalReferCompleted
             referralUsers.forEach((user) => {
@@ -239,7 +240,10 @@ const adminService = {
         }
     },
 
-    findWithdrawalCountUsingSearchTerm: async ({ withdrawalStatus, search }) => {
+    findWithdrawalCountUsingSearchTerm: async ({
+        withdrawalStatus,
+        search,
+    }) => {
         try {
             const result = await WithdrawalModel.aggregate([
                 {
