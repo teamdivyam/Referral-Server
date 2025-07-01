@@ -15,7 +15,6 @@ const WithdrawalSchema = new mongoose.Schema(
         amount: {
             type: Number,
             required: true,
-            min: 5000,
         },
         bank: {
             name: {

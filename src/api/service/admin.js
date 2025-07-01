@@ -34,8 +34,6 @@ const adminService = {
                 .limit(limit)
                 .lean();
 
-            console.log("referral u ser:", referralUsers);
-
 
             // Adding totalRefer and totalReferCompleted
             referralUsers.forEach((user) => {

@@ -6,6 +6,7 @@ import {
     ErrorStatusCode,
     ErrorCodes,
     SuccessStatusCode,
+    HTTPStatus,
 } from "../../utils/constant.js";
 import {
     activateAccount,
@@ -39,21 +40,25 @@ const AdminController = {
                 adminService.totalOrdersCompleted(),
             ]);
 
-            res.status(SuccessStatusCode.OPERATION_SUCCESSFUL).json({
+            res.status(HTTPStatus.SUCCESS).json({
                 totalReferralUser,
                 totalPaidToReferralUser,
                 totalLatestWithdrawalRequest,
                 totalOrdersCompleted,
             });
         } catch (error) {
-            logger.error(
-                `Error in retreiving admin dashboard analytics: ${error.message}, Error stack: ${error.stack}`
-            );
+            logger.error(`GET admin-dashboard-analytics: ${error.message}`);
 
-            return next(
-                createHttpError(ErrorStatusCode.SERVER_DATABASE_ERROR, {
-                    code: ErrorCodes.SERVER_DATABASE_ERROR,
-                    message: "Internal Server Error",
+            res.status(HTTPStatus.SERVER_ERROR).json({
+                error: {
+                    code: "SERVER_ERROR",
+                    message: error.message,
+                },
+            });
+            next(
+                createHttpError(HTTPStatus.SERVER_ERROR, {
+                    code: "SERVER_ERROR",
+                    message: error.message,
                 })
             );
         }
@@ -68,12 +73,16 @@ const AdminController = {
                 limit,
             });
             if (error) {
-                return next(
-                    createHttpError(ErrorStatusCode.VALIDATION_INVALID_FORMAT, {
-                        code: ErrorCodes.VALIDATION_INVALID_FORMAT,
-                        message: "Query Invalidation Error!",
-                    })
-                );
+                return res.status(HTTPStatus.BAD_REQUEST).json({
+                    error: {
+                        code: "VALIDATION_ERROR",
+                        message: "Query is invalid",
+                        details: {
+                            field: error.details[0].path[0],
+                            message: error.details[0].message,
+                        },
+                    },
+                });
             }
 
             const referralUsers =
@@ -88,22 +97,20 @@ const AdminController = {
             );
             const totalPages = Math.ceil(totalReferralUser / limit);
 
-            return res.status(SuccessStatusCode.OPERATION_SUCCESSFUL).json({
+            return res.status(HTTPStatus.SUCCESS).json({
                 referralUsers: referralUsers,
                 rowCount: totalReferralUser,
                 totalPages: totalPages,
             });
         } catch (error) {
-            logger.error(
-                `Error in retreiving agents: ${error.message}, Error stack: ${error.stack}`
-            );
+            logger.error(`GET multiple-referral-users: ${error.message}`);
 
-            return next(
-                createHttpError(ErrorStatusCode.SERVER_DATABASE_ERROR, {
-                    code: ErrorCodes.SERVER_DATABASE_ERROR,
-                    message: "Internal Server Error",
-                })
-            );
+            res.status(HTTPStatus.SERVER_ERROR).json({
+                error: {
+                    code: "SERVER_ERROR",
+                    message: error.message,
+                },
+            });
         }
     },
 
@@ -113,9 +120,9 @@ const AdminController = {
 
             if (!objectIdValidation(referralUserID)) {
                 return next(
-                    createHttpError(ErrorStatusCode.VALIDATION_INVALID_FORMAT, {
-                        code: ErrorCodes.VALIDATION_INVALID_FORMAT,
-                        message: "Query Invalidation Error!",
+                    createHttpError(HTTPStatus.BAD_REQUEST, {
+                        code: "VALIDATION_FORMAT",
+                        message: "User ID is invalid",
                     })
                 );
             }
@@ -125,25 +132,23 @@ const AdminController = {
             );
             if (!referralUser) {
                 return next(
-                    createHttpError(ErrorStatusCode.RESOURCE_NOT_FOUND, {
-                        code: ErrorCodes.RESOURCE_NOT_FOUND,
-                        message: "Referral user with this ID not found!",
+                    createHttpError(HTTPStatus.NOT_FOUND, {
+                        code: "USER_NOT_FOUND",
+                        message: "User not found",
                     })
                 );
             }
 
-            res.status(SuccessStatusCode.OPERATION_SUCCESSFUL).json({
+            res.status(HTTPStatus.SUCCESS).json({
                 success: true,
                 referralUser,
             });
         } catch (error) {
-            logger.error(
-                `Error in retreiving agent by id: ${error.message}, Error stack: ${error.stack}`
-            );
+            logger.error(`GET: referral-user: ${error.message}`);
 
             next(
-                createHttpError(ErrorStatusCode.SERVER_DATABASE_ERROR, {
-                    code: ErrorCodes.SERVER_DATABASE_ERROR,
+                createHttpError(HTTPStatus.SERVER_ERROR, {
+                    code: "SERVER_ERROR",
                     message: "Internal Server Error",
                 })
             );
@@ -275,14 +280,12 @@ const AdminController = {
                 withdrawalStatus,
             });
         } catch (error) {
-            logger.error(
-                `Error in getting latest withdrawal request: ${error.message}, Error stack: ${error.stack}`
-            );
+            logger.error(`GET: withdrawals: ${error.message}`);
 
             return next(
-                createHttpError(ErrorStatusCode.SERVER_DATABASE_ERROR, {
-                    code: ErrorCodes.SERVER_DATABASE_ERROR,
-                    message: "Internal Server Error",
+                createHttpError(HTTPStatus.SERVER_ERROR, {
+                    code: "SERVER_ERROR",
+                    message: error.message,
                 })
             );
         }
@@ -294,7 +297,8 @@ const AdminController = {
 
             const userInfo = await ReferralUserModelV1.findById(referralUserId)
                 .select(
-                    "user wallet.balance wallet.pendingBalance wallet.pendingWithdrawal wallet.totalEarning"
+                    `user wallet.balance wallet.pendingBalance 
+                    wallet.pendingWithdrawal wallet.totalEarning`
                 )
                 .populate({
                     path: "user",
@@ -305,14 +309,12 @@ const AdminController = {
                 userInfo,
             });
         } catch (error) {
-            logger.error(
-                `Error in getting latest withdrawal request: ${error.message}, Error stack: ${error.stack}`
-            );
+            logger.error(`GET: referral-user-balance ${error.message}`);
 
             return next(
-                createHttpError(ErrorStatusCode.SERVER_DATABASE_ERROR, {
-                    code: ErrorCodes.SERVER_DATABASE_ERROR,
-                    message: "Internal Server Error",
+                createHttpError(HTTPStatus.SERVER_ERROR, {
+                    code: "SERVER_ERROR",
+                    message: error.message,
                 })
             );
         }
@@ -325,9 +327,9 @@ const AdminController = {
 
             if (!objectIdValidation(withdrawalID)) {
                 return next(
-                    createHttpError(ErrorStatusCode.VALIDATION_INVALID_FORMAT, {
-                        code: ErrorCodes.VALIDATION_INVALID_FORMAT,
-                        message: "Query Invalidation Error!",
+                    createHttpError(HTTPStatus.BAD_REQUEST, {
+                        code: "VALIDATION_FORMAT",
+                        message: "Withdrawal ID is invalid",
                     })
                 );
             }
@@ -337,9 +339,9 @@ const AdminController = {
             });
             if (error) {
                 return next(
-                    createHttpError(ErrorStatusCode.VALIDATION_INVALID_FORMAT, {
-                        code: ErrorCodes.VALIDATION_INVALID_FORMAT,
-                        message: "Query and Body Invalidation Error!",
+                    createHttpError(HTTPStatus.BAD_REQUEST, {
+                        code: "VALIDATION_FORMAT",
+                        message: "Process type and remarks is invalid",
                     })
                 );
             }
@@ -362,19 +364,17 @@ const AdminController = {
                 });
             }
 
-            return res.status(SuccessStatusCode.OPERATION_SUCCESSFUL).json({
+            return res.status(HTTPStatus.SUCCESS).json({
                 success: true,
                 message: "Withdrawal Request is Already Approved or Not Exits!",
             });
         } catch (error) {
-            logger.error(
-                `Error in approved withdraw request: ${error.message}, Error stack: ${error.stack}`
-            );
+            logger.error(`PATCH: process-withdrawal ${error.message}`);
 
             return next(
-                createHttpError(ErrorStatusCode.SERVER_DATABASE_ERROR, {
-                    code: ErrorCodes.SERVER_DATABASE_ERROR,
-                    message: "Internal Server Error",
+                createHttpError(HTTPStatus.SERVER_ERROR, {
+                    code: "SERVER_ERROR",
+                    message: error.message,
                 })
             );
         }
@@ -408,26 +408,24 @@ const AdminController = {
                 await activateAccount(referralUserID);
             } else {
                 return next(
-                    createHttpError(ErrorStatusCode.RESOURCE_NOT_FOUND, {
-                        code: ErrorCodes.RESOURCE_NOT_FOUND,
+                    createHttpError(HTTPStatus.NOT_FOUND, {
+                        code: "ACTION_NOT_FOUND",
                         message: "Provided action is inavalid!",
                     })
                 );
             }
 
-            res.status(SuccessStatusCode.OPERATION_SUCCESSFUL).json({
+            res.status(HTTPStatus.SUCCESS).json({
                 success: true,
                 message: `${accountStatus} action is successfuly completed!`,
             });
         } catch (error) {
-            logger.error(
-                `Error in taking action on agent account: ${error.message}, Error stack: ${error.stack}`
-            );
+            logger.error(`PATCH: change-account-status ${error.message}`);
 
             return next(
-                createHttpError(ErrorStatusCode.SERVER_DATABASE_ERROR, {
-                    code: ErrorCodes.SERVER_DATABASE_ERROR,
-                    message: "Internal Server Error",
+                createHttpError(HTTPStatus.SERVER_ERROR, {
+                    code: "SERVER_ERROR",
+                    message: error.message,
                 })
             );
         }
@@ -440,79 +438,151 @@ const AdminController = {
             let referralEventData;
             let referralOverTimeData = [];
 
-            const cDate = new Date();
-            let pDate = new Date(cDate);
+            let currentDate = new Date();
+            let prevDate = new Date();
+            currentDate.setUTCHours(0, 0, 0, 0);
+            prevDate.setUTCHours(0, 0, 0, 0);
+            console.log("Prev Date:", prevDate);
+            console.log("Current Date:", currentDate);
+
             switch (defineTime) {
                 case "last7Days":
-                    pDate.setDate(cDate.getDate() - 7);
-                    referralEventData = await ReferralEventModel.find({
-                        createdAt: {
-                            $gte: pDate.toISOString(),
-                            $lt: cDate.toISOString(),
+                    prevDate.setDate(currentDate.getDate() - 7);
+
+                    referralEventData = await ReferralEventModel.aggregate([
+                        {
+                            $match: {
+                                createdAt: { $gte: prevDate, $lt: currentDate },
+                            },
                         },
-                    });
-                    for (let i = pDate.getDate(); i < cDate.getDate(); i++) {
-                        referralOverTimeData.push({ day: i, referral: 0 });
-                    }
-                    for (let i = 0; i < referralOverTimeData.length; i++) {
-                        const dateToFilter = referralOverTimeData[i].day;
+                        {
+                            $group: {
+                                _id: {
+                                    $dateToString: {
+                                        format: "%Y-%m-%d",
+                                        date: "$createdAt",
+                                    },
+                                },
+                                count: {
+                                    $sum: 1,
+                                },
+                            },
+                        },
+                        {
+                            $sort: { _id: -1 },
+                        },
+                    ]);
 
-                        referralEventData.forEach((res) => {
-                            const getDate = new Date(res.createdAt).getDate();
+                    while (currentDate.getTime() > prevDate.getTime()) {
+                        referralOverTimeData.push({
+                            day: currentDate.getDate(),
+                            refers: 0,
+                        });
+                        referralEventData.forEach((ref) => {
+                            const refDate = new Date(ref._id);
 
-                            if (getDate === dateToFilter) {
-                                referralOverTimeData[i].referral += 1;
+                            if (currentDate.getTime() === refDate.getTime()) {
+                                referralOverTimeData[
+                                    referralOverTimeData.length - 1
+                                ].refers = ref.count;
                             }
                         });
+                        currentDate.setDate(currentDate.getDate() - 1);
                     }
                     break;
 
                 case "thisMonth":
-                    pDate.setDate(1);
-                    referralEventData = await ReferralEventModel.find({
-                        createdAt: {
-                            $gte: pDate.toISOString(),
-                            $lt: cDate.toISOString(),
+                    prevDate.setDate(1);
+
+                    referralEventData = await ReferralEventModel.aggregate([
+                        {
+                            $match: {
+                                createdAt: { $gte: prevDate, $lt: currentDate },
+                            },
                         },
-                    });
-                    for (let i = pDate.getDate(); i < cDate.getDate(); i++) {
-                        referralOverTimeData.push({ day: i, referral: 0 });
-                    }
-                    for (let i = 0; i < referralOverTimeData.length; i++) {
-                        const dateToFilter = referralOverTimeData[i].day;
+                        {
+                            $group: {
+                                _id: {
+                                    $dateToString: {
+                                        format: "%Y-%m-%d",
+                                        date: "$createdAt",
+                                    },
+                                },
+                                count: {
+                                    $sum: 1,
+                                },
+                            },
+                        },
+                        {
+                            $sort: { _id: 1 },
+                        },
+                    ]);
 
-                        referralEventData.forEach((res) => {
-                            const getDate = new Date(res.createdAt).getDate();
+                    while (currentDate.getTime() > prevDate.getTime()) {
+                        referralOverTimeData.push({
+                            day: prevDate.getDate(),
+                            refers: 0,
+                        });
+                        referralEventData.forEach((ref) => {
+                            const refDate = new Date(ref._id);
 
-                            if (getDate === dateToFilter) {
-                                referralOverTimeData[i].referral += 1;
+                            if (prevDate.getTime() === refDate.getTime()) {
+                                referralOverTimeData[
+                                    referralOverTimeData.length - 1
+                                ].refers = ref.count;
                             }
                         });
+                        prevDate.setDate(prevDate.getDate() - 1);
                     }
                     break;
 
                 case "lastMonth":
-                    pDate.setDate(cDate.getDate() - cDate.getDate() - 30);
-                    cDate.setDate(0);
-                    referralEventData = await ReferralEventModel.find({
-                        createdAt: {
-                            $gte: pDate.toISOString(),
-                            $lt: cDate.toISOString(),
+                    prevDate.setMonth(currentDate.getMonth() - 1);
+                    prevDate.setDate(1);
+                    currentDate.setDate(0);
+
+                    console.log("Prev Date:", prevDate);
+                    console.log("Current Date:", currentDate);
+
+                    referralEventData = await ReferralEventModel.aggregate([
+                        {
+                            $match: {
+                                createdAt: { $gte: prevDate, $lt: currentDate },
+                            },
                         },
-                    });
-                    for (let i = pDate.getDate(); i < cDate.getDate(); i++) {
-                        referralOverTimeData.push({ day: i, referral: 0 });
-                    }
-                    for (let i = 0; i < referralOverTimeData.length; i++) {
-                        const dateToFilter = referralOverTimeData[i].day;
+                        {
+                            $group: {
+                                _id: {
+                                    $dateToString: {
+                                        format: "%Y-%m-%d",
+                                        date: "$createdAt",
+                                    },
+                                },
+                                count: {
+                                    $sum: 1,
+                                },
+                            },
+                        },
+                        {
+                            $sort: { _id: 1 },
+                        },
+                    ]);
 
-                        referralEventData.forEach((res) => {
-                            const getDate = new Date(res.createdAt).getDate();
+                    while (currentDate.getTime() >= prevDate.getTime()) {
+                        referralOverTimeData.push({
+                            day: prevDate.getDate(),
+                            refers: 0,
+                        });
+                        referralEventData.forEach((ref) => {
+                            const refDate = new Date(ref._id);
 
-                            if (getDate === dateToFilter) {
-                                referralOverTimeData[i].referral += 1;
+                            if (prevDate.getTime() === refDate.getTime()) {
+                                referralOverTimeData[
+                                    referralOverTimeData.length - 1
+                                ].refers = ref.count;
                             }
                         });
+                        prevDate.setDate(prevDate.getDate() + 1);
                     }
                     break;
             }
@@ -523,14 +593,12 @@ const AdminController = {
                 defineTime,
             });
         } catch (error) {
-            logger.error(
-                `Error in verify referral code: ${error.message}, Error stack: ${error.stack}`
-            );
+            logger.error(`GET: referral-over-time ${error.message}`);
 
             return next(
-                createHttpError(ErrorStatusCode.SERVER_DATABASE_ERROR, {
-                    code: ErrorCodes.SERVER_DATABASE_ERROR,
-                    message: "Internal Server Error",
+                createHttpError(HTTPStatus.SERVER_ERROR, {
+                    code: "SERVER_ERROR",
+                    message: error.message,
                 })
             );
         }
@@ -565,14 +633,12 @@ const AdminController = {
                 rows,
             });
         } catch (error) {
-            logger.error(
-                `Error in getting latest payout: ${error.message}, Error stack: ${error.stack}`
-            );
+            logger.error(`GET: latest-payouts ${error.message}`);
 
             return next(
-                createHttpError(ErrorStatusCode.SERVER_DATABASE_ERROR, {
-                    code: ErrorCodes.SERVER_DATABASE_ERROR,
-                    message: "Internal Server Error",
+                createHttpError(HTTPStatus.SERVER_ERROR, {
+                    code: "SERVER_ERROR",
+                    message: error.message,
                 })
             );
         }
@@ -584,14 +650,12 @@ const AdminController = {
 
             await referralScript(res, state);
         } catch (error) {
-            logger.error(
-                `Error in controlling cron job: ${error.message}, Error stack: ${error.stack}`
-            );
+            logger.error(`PATCH: control-cron-job ${error.message}`);
 
             return next(
-                createHttpError(ErrorStatusCode.SERVER_DATABASE_ERROR, {
-                    code: ErrorCodes.SERVER_DATABASE_ERROR,
-                    message: "Internal Server Error",
+                createHttpError(HTTPStatus.SERVER_ERROR, {
+                    code: "SERVER_ERROR",
+                    message: error.message,
                 })
             );
         }
@@ -601,14 +665,12 @@ const AdminController = {
         try {
             await cronJobStatus(res);
         } catch (error) {
-            logger.error(
-                `Error in getting cron job status: ${error.message}, Error stack: ${error.stack}`
-            );
+            logger.error(`GET: cron-job-status ${error.message}`);
 
             return next(
-                createHttpError(ErrorStatusCode.SERVER_DATABASE_ERROR, {
-                    code: ErrorCodes.SERVER_DATABASE_ERROR,
-                    message: "Internal Server Error",
+                createHttpError(HTTPStatus.SERVER_ERROR, {
+                    code: "SERVER_ERROR",
+                    message: error.message,
                 })
             );
         }
@@ -620,18 +682,16 @@ const AdminController = {
                 "-_id -createdAt -updatedAt"
             );
 
-            res.json({
+            res.status(HTTPStatus.SUCCESS).json({
                 result,
             });
         } catch (error) {
-            logger.error(
-                `Error in getting referral settings: ${error.message}, Error stack: ${error.stack}`
-            );
+            logger.error(`GET: referral-settings ${error.message}`);
 
             return next(
-                createHttpError(ErrorStatusCode.SERVER_DATABASE_ERROR, {
-                    code: ErrorCodes.SERVER_DATABASE_ERROR,
-                    message: "Internal Server Error",
+                createHttpError(HTTPStatus.SERVER_ERROR, {
+                    code: "SERVER_ERROR",
+                    message: error.message,
                 })
             );
         }
@@ -647,16 +707,16 @@ const AdminController = {
                 upsert: false,
             });
 
-            res.json({ success: true });
+            res.status(HTTPStatus.SUCCESS).json({
+                success: true,
+            });
         } catch (error) {
-            logger.error(
-                `Error in getting referral settings: ${error.message}, Error stack: ${error.stack}`
-            );
+            logger.error(`PATCH: change-referral-settings ${error.message}`);
 
             return next(
-                createHttpError(ErrorStatusCode.SERVER_DATABASE_ERROR, {
-                    code: ErrorCodes.SERVER_DATABASE_ERROR,
-                    message: "Internal Server Error",
+                createHttpError(HTTPStatus.SERVER_ERROR, {
+                    code: "SERVER_ERROR",
+                    message: error.message,
                 })
             );
         }
@@ -666,8 +726,6 @@ const AdminController = {
         try {
             const { schedule, scheduleTime } = req.body;
 
-            console.log(req.body);
-
             await ReferralRuleModel.findOneAndUpdate(
                 {},
                 { referralScript: { schedule, scheduleTime } },
@@ -676,16 +734,16 @@ const AdminController = {
                 }
             );
 
-            res.json({ success: true });
+            res.status(HTTPStatus.SUCCESS).json({
+                success: true,
+            });
         } catch (error) {
-            logger.error(
-                `Error in updating referral schedule: ${error.message}, Error stack: ${error.stack}`
-            );
+            logger.error(`PATCH: referral-schedule ${error.message}`);
 
             return next(
-                createHttpError(ErrorStatusCode.SERVER_DATABASE_ERROR, {
-                    code: ErrorCodes.SERVER_DATABASE_ERROR,
-                    message: "Internal Server Error",
+                createHttpError(HTTPStatus.SERVER_ERROR, {
+                    code: "SERVER_ERROR",
+                    message: error.message,
                 })
             );
         }
@@ -718,8 +776,14 @@ const AdminController = {
                             },
                         })
                             .populate([
-                                { path: "referrer_user_id", select: "fullName mobileNum email" },
-                                { path: "referee_user_id", select: "fullName mobileNum email"  }
+                                {
+                                    path: "referrer_user_id",
+                                    select: "fullName mobileNum email",
+                                },
+                                {
+                                    path: "referee_user_id",
+                                    select: "fullName mobileNum email",
+                                },
                             ])
                             .sort({ updatedAt: 1 })
                             .skip(LIMIT * (page - 1))
@@ -755,8 +819,14 @@ const AdminController = {
                             },
                         })
                             .populate([
-                                { path: "referrer_user_id", select: "fullName mobileNum email" },
-                                { path: "referee_user_id", select: "fullName mobileNum email"  }
+                                {
+                                    path: "referrer_user_id",
+                                    select: "fullName mobileNum email",
+                                },
+                                {
+                                    path: "referee_user_id",
+                                    select: "fullName mobileNum email",
+                                },
                             ])
                             .sort({ updatedAt: 1 })
                             .skip(LIMIT * (page - 1))
@@ -792,8 +862,14 @@ const AdminController = {
                             },
                         })
                             .populate([
-                                { path: "referrer_user_id", select: "fullName mobileNum email" },
-                                { path: "referee_user_id", select: "fullName mobileNum email"  }
+                                {
+                                    path: "referrer_user_id",
+                                    select: "fullName mobileNum email",
+                                },
+                                {
+                                    path: "referee_user_id",
+                                    select: "fullName mobileNum email",
+                                },
                             ])
                             .sort({ updatedAt: 1 })
                             .skip(LIMIT * (page - 1))
@@ -818,20 +894,18 @@ const AdminController = {
                         //     );
                     }
             }
-            return res.status(SuccessStatusCode.OPERATION_SUCCESSFUL).json({
+            return res.status(HTTPStatus.SUCCESS).json({
                 referrals,
                 rows,
                 referralStatus,
             });
         } catch (error) {
-            logger.error(
-                `Error in retreiving referrals: ${error.message}, Error stack: ${error.stack}`
-            );
+            logger.error(`GET: referrals ${error.message}`);
 
             return next(
-                createHttpError(ErrorStatusCode.SERVER_DATABASE_ERROR, {
-                    code: ErrorCodes.SERVER_DATABASE_ERROR,
-                    message: "Internal Server Error",
+                createHttpError(HTTPStatus.SERVER_ERROR, {
+                    code: "SERVER_ERROR",
+                    message: error.message,
                 })
             );
         }

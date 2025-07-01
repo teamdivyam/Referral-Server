@@ -7,29 +7,33 @@ mongoose
     .then(() => console.log("Connected to MongoDB"))
     .catch((err) => console.error("MongoDB connection error:", err));
 
-const referralUser = { id: "6847f2fb321fd116d74af28b", code: "H7BQYX" };
+const referralUser = { id: "68622d5e2d4ed211bb868d36", userId: "685fdda002f712342d419085", code: "04CS1Q" };
 const orderIds = [
-    "68418bdf5422b0f2f007ed91",
-    "68418bdf5422b0f2f007ed90",
+    "68418bdf5422b0f2f007ed88",
+    "68418bdf5422b0f2f007ed8b",
     "68418bdf5422b0f2f007ed8f",
     "68418bdf5422b0f2f007ed8e",
 ];
 const usersIds = [
-    "6847e42f089dc4bb1fa5cf3b",
-    "6847e42f089dc4bb1fa5cf3a",
-    "6847e42f089dc4bb1fa5cf39",
-    "6847e42f089dc4bb1fa5cf38",
+    "685fdda002f712342d419083",
+    "685fdda002f712342d419084",
+    "685fdda002f712342d419085",
+    "685fdda002f712342d419086",
 ];
+let ref_id = 1000;
 
 function Events() {
     const cDate = new Date();
     let pWeekDate = new Date(cDate);
     pWeekDate.setDate(cDate.getDate() - Math.ceil(Math.random() * 100));
-    this.referrer = referralUser.id;
-    this.referee = usersIds[Math.floor(Math.random() * usersIds.length)];
-    this.referralCode = referralUser.code;
-    this.orderId = orderIds[Math.floor(Math.random() * orderIds.length)];
-    this.amount = 1000;
+
+    this.ref_id = `REF-${ref_id++}`; 
+    this.referrer_id = referralUser.id;
+    this.referrer_user_id = referralUser.userId;
+    this.referee_user_id = usersIds[Math.floor(Math.random() * usersIds.length)];
+    this.referral_code = referralUser.code;
+    this.order = orderIds[Math.floor(Math.random() * orderIds.length)];
+    this.amount = 2500;
     this.createdAt = pWeekDate;
 }
 
@@ -47,7 +51,7 @@ async function SeedReferralEvents() {
 
         await ReferralUserModelV1.findByIdAndUpdate(referralUser.id, {
             $push: { referralEvents: referralEventIdList },
-            $set: { "wallet.pendingBalance": 50 * 1000 },
+            $set: { "wallet.pendingBalance": 50 * 2500 },
         });
 
         console.log("Seed successfully");

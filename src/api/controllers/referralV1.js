@@ -340,7 +340,7 @@ const referralController = {
 
                 return res.json({
                     success: false,
-                    message: `Request amount is less than min. withdrawal ${MIN_WITHDRAWAL_AMOUNT}`,
+                    message: `Request amount is less than min. withdrawal ${referralRules.minWithdrawalAmount}`,
                 });
             }
             const primaryBank = referralUser.wallet.accounts.find(
