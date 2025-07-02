@@ -442,8 +442,6 @@ const AdminController = {
             let prevDate = new Date();
             currentDate.setUTCHours(0, 0, 0, 0);
             prevDate.setUTCHours(0, 0, 0, 0);
-            console.log("Prev Date:", prevDate);
-            console.log("Current Date:", currentDate);
 
             switch (defineTime) {
                 case "last7Days":
@@ -532,7 +530,7 @@ const AdminController = {
                                 ].refers = ref.count;
                             }
                         });
-                        prevDate.setDate(prevDate.getDate() - 1);
+                        prevDate.setDate(prevDate.getDate() + 1);
                     }
                     break;
 
@@ -540,9 +538,6 @@ const AdminController = {
                     prevDate.setMonth(currentDate.getMonth() - 1);
                     prevDate.setDate(1);
                     currentDate.setDate(0);
-
-                    console.log("Prev Date:", prevDate);
-                    console.log("Current Date:", currentDate);
 
                     referralEventData = await ReferralEventModel.aggregate([
                         {
