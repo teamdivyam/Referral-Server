@@ -136,7 +136,6 @@ const AdminController = {
                 sortDir,
             });
             if (error) {
-                console.log("error:", error);
                 return next(
                     createHttpError(HTTPStatus.BAD_REQUEST, {
                         code: "INVALIDATION_QUERY",

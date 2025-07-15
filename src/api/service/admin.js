@@ -599,7 +599,12 @@ const adminService = {
                         as: "referralEvents",
                     },
                 },
-                { $unwind: "$referralEvents" },
+                {
+                    $unwind: {
+                        path: "$referralEvents",
+                        preserveNullAndEmptyArrays: true, // Preserve users with no referrals
+                    },
+                },
             ];
 
             if (search) {
@@ -633,10 +638,73 @@ const adminService = {
                 $facet: {
                     referralUsers: [
                         {
+                            $group: {
+                                _id: "$_id",
+                                user: { $first: "$user" },
+                                wallet: { $first: "$wallet" },
+                                referralCode: { $first: "$referralCode" },
+                                accountStatus: { $first: "$accountStatus" },
+                                createdAt: { $first: "$createdAt" },
+                                updatedAt: { $first: "$updatedAt" },
+                                referralEvents: { $push: "$referralEvents" },
+                            },
+                        },
+                        {
+                            $addFields: {
+                                referralStats: {
+                                    pending: {
+                                        $size: {
+                                            $filter: {
+                                                input: "$referralEvents",
+                                                as: "event",
+                                                cond: {
+                                                    $eq: [
+                                                        "$$event.status",
+                                                        "pending",
+                                                    ],
+                                                },
+                                            },
+                                        },
+                                    },
+                                    completed: {
+                                        $size: {
+                                            $filter: {
+                                                input: "$referralEvents",
+                                                as: "event",
+                                                cond: {
+                                                    $eq: [
+                                                        "$$event.status",
+                                                        "completed",
+                                                    ],
+                                                },
+                                            },
+                                        },
+                                    },
+                                    rejected: {
+                                        $size: {
+                                            $filter: {
+                                                input: "$referralEvents",
+                                                as: "event",
+                                                cond: {
+                                                    $eq: [
+                                                        "$$event.status",
+                                                        "rejected",
+                                                    ],
+                                                },
+                                            },
+                                        },
+                                    },
+                                    total: { $size: "$referralEvents" },
+                                },
+                            },
+                        },
+                        {
                             $project: {
-                                userId: "$_id",
-                                referralCode: 1,
-                                referralEvents: 1,
+                                user: {
+                                    fullName: "$user.fullName",
+                                    email: "$user.email",
+                                    mobileNum: "$user.mobileNum",
+                                },
                                 wallet: {
                                     balance: 1,
                                     pendingBalance: 1,
@@ -644,52 +712,13 @@ const adminService = {
                                     totalEarning: 1,
                                     accounts: 1,
                                 },
+                                referralCode: 1,
                                 accountStatus: 1,
-                                user: {
-                                    fullName: 1,
-                                    mobileNum: 1,
-                                    email: 1,
-                                },
                                 createdAt: 1,
                                 updatedAt: 1,
+                                referralStats: 1,
                             },
                         },
-                        {
-                            $group: {
-                                _id: {
-                                    userId: "$userId",
-                                    status: "$referralEvents.status",
-                                },
-                                referralCode: { $first: "$referralCode" },
-                                wallet: { $first: "$wallet" },
-                                accountStatus: { $first: "$accountStatus" },
-                                user: { $first: "$user" },
-                                createdAt: { $first: "$createdAt" },
-                                updatedAt: { $first: "$updatedAt" },
-                                count: { $sum: 1 },
-                            },
-                        },
-                        {
-                            $group: {
-                                _id: "$_id.userId",
-                                referralCode: { $first: "$referralCode" },
-                                wallet: { $first: "$wallet" },
-                                accountStatus: { $first: "$accountStatus" },
-                                user: { $first: "$user" },
-                                createdAt: { $first: "$createdAt" },
-                                updatedAt: { $first: "$updatedAt" },
-                                statusCounts: {
-                                    $push: {
-                                        status: "$_id.status",
-                                        count: "$count",
-                                    },
-                                },
-                                totalReferrals: { $sum: "$count" },
-                            },
-                        },
-                        { $sort: { updatedAt: -1 } },
-                        { $skip: pageSize * (page - 1) },
-                        { $limit: pageSize },
                     ],
                     totalCount: [
                         { $group: { _id: "$_id" } }, // Group by user to get distinct count
