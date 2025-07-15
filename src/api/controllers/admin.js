@@ -160,8 +160,8 @@ const AdminController = {
                 });
 
             res.status(HTTPStatus.SUCCESS).json({
-                referralUsers: result[0].referralUsers,
-                rows: result[0].totalCount[0].total,
+                referralUsers: result[0]?.referralUsers,
+                rows: result[0]?.totalCount[0]?.total || 0,
             })
         } catch (error) {
             logger.error(`GET: referrals ${error.message}`);
