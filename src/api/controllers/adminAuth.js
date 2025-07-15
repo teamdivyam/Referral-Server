@@ -7,6 +7,7 @@ import {
     ACCESS_TOKEN_SECRET,
     ErrorCodes,
     ErrorStatusCode,
+    HTTPStatus,
     SuccessStatusCode,
 } from "../../utils/constant.js";
 import {
@@ -24,10 +25,9 @@ const AdminAuthController = {
                 password,
             });
             if (error) {
-                logger.error("Error in login validation");
                 return next(
-                    createHttpError(ErrorStatusCode.VALIDATION_INVALID_FORMAT, {
-                        code: ErrorCodes.VALIDATION_INVALID_FORMAT,
+                    createHttpError(HTTPStatus.BAD_REQUEST, {
+                        code: "INVALID_FORMAT",
                         message: error.details[0].message,
                     })
                 );
@@ -36,8 +36,8 @@ const AdminAuthController = {
             const admin = await AdminModel.findOne({ email });
             if (!admin) {
                 return next(
-                    createHttpError(ErrorStatusCode.AUTH_INVALID_CREDENTIALS, {
-                        code: ErrorCodes.AUTH_INVALID_CREDENTIALS,
+                    createHttpError(HTTPStatus.UNAUTHORIZED, {
+                        code: "INVALID_CREDENTIALS",
                         message: "Invalid credentials",
                     })
                 );
@@ -50,8 +50,8 @@ const AdminAuthController = {
             );
             if (!isPasswordMatched) {
                 return next(
-                    createHttpError(ErrorStatusCode.AUTH_INVALID_CREDENTIALS, {
-                        code: ErrorCodes.AUTH_INVALID_CREDENTIALS,
+                    createHttpError(HTTPStatus.UNAUTHORIZED, {
+                        code: "INVALID_CREDENTIALS",
                         message: "Invalid credentials",
                     })
                 );
@@ -62,11 +62,22 @@ const AdminAuthController = {
                 expiresIn: "7d",
             });
 
-            res.status(SuccessStatusCode.OPERATION_SUCCESSFUL).json({
+            res.status(HTTPStatus.SUCCESS).json({
                 success: true,
                 token,
             });
-        } catch (error) {}
+        } catch (error) {
+            logger.error(
+                `Failed to register admin: ${error.message}, Error stack: ${error.stack}`
+            );
+
+            return next(
+                createHttpError(ErrorStatusCode.SERVER_DATABASE_ERROR, {
+                    code: ErrorCodes.SERVER_DATABASE_ERROR,
+                    message: "Internal Server Error",
+                })
+            );
+        }
     },
 
     async register(req, res, next) {

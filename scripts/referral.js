@@ -13,6 +13,9 @@ const orderStatusType = {
     rejected: ["Cancelled", "Refunded"],
 };
 
+let pendingBalance = 100000;
+let balance = 0;
+
 const jobFunction = async () => {
     console.log("Running scheduled job...");
     lastExecutionTime = new Date();
@@ -24,7 +27,7 @@ const jobFunction = async () => {
          */
         const pendingReferrals = await ReferralEventModel.find({
             status: "pending",
-        }).populate("order");
+        }).populate({ path: "order", select: "orderStatus" });
 
         for (const referral of pendingReferrals) {
             const session = await mongoose.startSession();

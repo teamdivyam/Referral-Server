@@ -4,7 +4,7 @@ import AdminController from "../controllers/admin.js";
 const AdminRouter = express.Router();
 
 AdminRouter.get("/dashboard-analytics", AdminController.getDashboardAnalytics);
-AdminRouter.get("/referral-users", AdminController.getMultipleReferralUsers);
+AdminRouter.get("/referral-users", AdminController.getMultipleUsers);
 AdminRouter.get("/referral-user/:referralUserID", AdminController.getOneReferralUser);
 AdminRouter.get("/withdrawals", AdminController.getWithdrawals);
 AdminRouter.get("/balance", AdminController.getReferralUserBalance);

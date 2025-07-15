@@ -4,6 +4,7 @@ const globalErrorHandler = (error, req, res, next) => {
     error: {
       code: error.code || "INTERNAL_SERVER_ERROR",
       message: error.message || "Internal Server Error...",
+      details: error.details,
       timestamp: new Date(),
     },
   });

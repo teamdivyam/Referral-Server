@@ -20,6 +20,7 @@ import {
 } from "./api/controllers/officeUserAuth.controller.js";
 import { officeUserAuthMiddleware } from "./api/middlewares/officeUserAuth.js";
 import CounterModel from "./db/models/ReferralCounter.js";
+import { apiRateLimiter } from "./api/middlewares/rateLimiter.js";
 
 configDotenv();
 const app = express();
@@ -44,6 +45,7 @@ const corsOptions = {
     ],
 };
 
+
 // Middlewares
 app.use(cors(corsOptions));
 app.use(express.json());
@@ -67,7 +69,7 @@ app.use((req, res, next) => {
 // })();
 
 // Routers
-app.use("/api/referral/auth", AuthRouter);
+app.use("/api/referral/auth", apiRateLimiter, AuthRouter);
 app.use("/api/referral/admin", adminAuth, AdminRouter);
 app.use("/api/referral", ReferralRouterV1);
 

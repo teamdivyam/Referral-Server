@@ -6,20 +6,19 @@ const ReferralEventSchema = new mongoose.Schema(
         // Referral ID  
         ref_id: {
             type: String,
-            unique: true,
         },
-        // Referral User ID of Referrer
+        // Referral ID of User
         referrer_id: {
             type: mongoose.Schema.Types.ObjectId,
             ref: "referraluser"
         },
-        // User ID of referrer
+        // User ID of Referral User
         referrer_user_id: {
             type: mongoose.Schema.Types.ObjectId,
             ref: "User",
             required: true,
         },
-        // User ID of referee
+        // User ID of Referee
         referee_user_id: {
             type: mongoose.Schema.Types.ObjectId,
             ref: "User",
@@ -37,6 +36,7 @@ const ReferralEventSchema = new mongoose.Schema(
             type: String,
             enum: ["pending", "completed", "cancelled"],
             default: "pending",
+            index: true,
         },
         amount: {
             type: Number,
@@ -52,7 +52,7 @@ const ReferralEventSchema = new mongoose.Schema(
 );
 
 ReferralEventSchema.pre("save", async function (next) {
-    if (!this.referralId) {
+    if (!this.ref_id) {
         const counter = await CounterModel.findByIdAndUpdate(
             { _id: "referralEventId" },
             { $inc: { seq: 1 } },

@@ -1,13 +1,18 @@
 import mongoose from "mongoose";
+import CounterModel from "./ReferralCounter.js";
 
 const WithdrawalSchema = new mongoose.Schema(
     {
+        withdrawal_id: {
+            type: String,
+            unique: true,
+        },
         user: {
             type: mongoose.Schema.Types.ObjectId,
             ref: "User",
             required: true,
         },
-        referralUser: {
+        referral_user: {
             type: mongoose.Schema.Types.ObjectId,
             ref: "referraluser",
             required: true,
@@ -39,18 +44,14 @@ const WithdrawalSchema = new mongoose.Schema(
             enum: ["pending", "approved", "rejected", "paid"],
             default: "pending",
         },
-        transactionId: {
+        transaction_id: {
             type: String,
             default: null,
         },
         remarks: {
             type: String,
         },
-        requestedAt: {
-            type: Date,
-            required: true,
-        },
-        processedAt: {
+        processed_at: {
             type: Date,
         },
     },
@@ -60,9 +61,18 @@ const WithdrawalSchema = new mongoose.Schema(
     }
 );
 
-const WithdrawalModel = mongoose.model(
-    "referralwithdrawal",
-    WithdrawalSchema
-);
+WithdrawalSchema.pre("save", async function (next) {
+    if (!this.withdrawal_id) {
+        const counter = await CounterModel.findByIdAndUpdate(
+            { _id: "withdrawalId" },
+            { $inc: { seq: 1 } },
+            { new: true, upsert: true }
+        );
+        this.withdrawal_id = `WD-${counter.seq}`;
+    }
+    next();
+});
+
+const WithdrawalModel = mongoose.model("referralwithdrawal", WithdrawalSchema);
 
 export default WithdrawalModel;

@@ -17,6 +17,7 @@ import {
     agentAccountStatus,
     objectIdValidation,
     processWithdrawalValidation,
+    ValidateMultipleUserQuery,
     validatePageLimitSearch,
 } from "../validators/admin.js";
 import WithdrawalModel from "../../db/models/ReferralWithdrawalV1.js";
@@ -114,6 +115,66 @@ const AdminController = {
         }
     },
 
+    getMultipleUsers: async (req, res, next) => {
+        try {
+            const {
+                page = 1,
+                pageSize = 10,
+                search = undefined,
+                searchFor = undefined,
+                sortBy = undefined,
+                sortDir = "asc",
+            } = req.query;
+
+            // Validate query of request
+            const { error } = ValidateMultipleUserQuery.validate({
+                page,
+                pageSize,
+                search,
+                searchFor,
+                sortBy,
+                sortDir,
+            });
+            if (error) {
+                console.log("error:", error);
+                return next(
+                    createHttpError(HTTPStatus.BAD_REQUEST, {
+                        code: "INVALIDATION_QUERY",
+                        message: "Query is Invalid",
+                        details: {
+                            field: error.details[0].path[0],
+                            message: error.details[0].message,
+                        },
+                    })
+                );
+            }
+
+            const result =
+                await adminService.getMultipleReferralUsers({
+                    page,
+                    pageSize,
+                    search,
+                    searchFor,
+                    sortBy,
+                    sortDir,
+                });
+
+            res.status(HTTPStatus.SUCCESS).json({
+                referralUsers: result[0].referralUsers,
+                rows: result[0].totalCount[0].total,
+            })
+        } catch (error) {
+            logger.error(`GET: referrals ${error.message}`);
+
+            return next(
+                createHttpError(HTTPStatus.SERVER_ERROR, {
+                    code: "SERVER_ERROR",
+                    message: error.message,
+                })
+            );
+        }
+    },
+
     getOneReferralUser: async (req, res, next) => {
         try {
             const { referralUserID } = req.params;
@@ -157,6 +218,8 @@ const AdminController = {
 
     getWithdrawals: async (req, res, next) => {
         const LIMIT = 50;
+        const statusList = ["pending", "approved", "rejected"];
+
         try {
             let {
                 withdrawalStatus = "pending",
@@ -168,111 +231,135 @@ const AdminController = {
 
             let withdrawals, rows;
 
-            fromDate = new Date(fromDate);
-            toDate = new Date(toDate);
+            if (statusList.includes(withdrawalStatus)) {
+                fromDate = new Date(fromDate);
+                toDate = new Date(toDate);
 
-            switch (withdrawalStatus) {
-                case "pending":
-                    if (search === "") {
-                        withdrawals = await WithdrawalModel.find({
-                            status: "pending",
-                            createdAt: {
-                                $gte: fromDate.toISOString(),
-                                $lte: toDate.toISOString(),
-                            },
-                        })
-                            .populate({ path: "user", select: "email" })
-                            .sort({ updatedAt: 1 })
-                            .skip(LIMIT * (page - 1))
-                            .limit(LIMIT)
-                            .lean();
-                        rows = await WithdrawalModel.countDocuments({
-                            status: "pending",
-                        });
-                    } else {
-                        withdrawals =
-                            await adminService.findWithdrawalUsingSearchTerm({
-                                withdrawalStatus,
-                                page,
-                                search,
-                                fromDate,
-                                toDate,
-                                limit: LIMIT,
-                            });
-                        rows =
-                            await adminService.findWithdrawalCountUsingSearchTerm(
-                                { withdrawalStatus, search }
-                            );
-                    }
-                    break;
+                const withdrawals = await adminService.getWithdrawal({
+                    withdrawalStatus,
+                    page,
+                    search,
+                    fromDate,
+                    toDate,
+                    LIMIT,
+                });
 
-                case "approved":
-                    if (search === "") {
-                        withdrawals = await WithdrawalModel.find({
-                            status: "approved",
-                            processedAt: {
-                                $gte: fromDate.toISOString(),
-                                $lte: toDate.toISOString(),
-                            },
-                        })
-                            .populate({ path: "user", select: "email" })
-                            .sort({ updatedAt: -1 })
-                            .skip(LIMIT * (page - 1))
-                            .limit(LIMIT)
-                            .lean();
-                        rows = await WithdrawalModel.countDocuments({
-                            status: "approved",
-                        });
-                    } else {
-                        withdrawals =
-                            await adminService.findWithdrawalUsingSearchTerm({
-                                withdrawalStatus,
-                                page,
-                                search,
-                                fromDate,
-                                toDate,
-                                limit: LIMIT,
-                            });
-                        rows =
-                            await adminService.findWithdrawalCountUsingSearchTerm(
-                                { withdrawalStatus, search }
-                            );
-                    }
-                    break;
-
-                case "rejected":
-                    if (search === "") {
-                        withdrawals = await WithdrawalModel.find({
-                            status: "rejected",
-                            processedAt: {
-                                $gte: fromDate.toISOString(),
-                                $lte: toDate.toISOString(),
-                            },
-                        })
-                            .populate({ path: "user", select: "email" })
-                            .sort({ updatedAt: -1 })
-                            .skip(LIMIT * (page - 1))
-                            .limit(LIMIT)
-                            .lean();
-                        rows = await WithdrawalModel.countDocuments({
-                            status: "rejected",
-                        });
-                    } else {
-                        withdrawals =
-                            await adminService.findWithdrawalUsingSearchTerm({
-                                withdrawalStatus,
-                                page,
-                                search,
-                                fromDate,
-                                toDate,
-                                limit: LIMIT,
-                            });
-                        rows =
-                            await adminService.findWithdrawalCountUsingSearchTerm(
-                                { withdrawalStatus, search }
-                            );
-                    }
+                return res.status(HTTPStatus.SUCCESS).json({
+                    rows: withdrawals[0]?.totalCount[0]?.total || 0,
+                    withdrawals: withdrawals[0]?.withdrawals || [],
+                    status: withdrawalStatus,
+                });
+            } else {
+                return next(
+                    createHttpError(HTTPStatus.BAD_REQUEST, {
+                        code: "INVALIDATE_REFERRAL_STATUS",
+                        message: "Referral status is invalid",
+                    })
+                );
             }
+
+            // switch (withdrawalStatus) {
+            //     case "pending":
+            //         if (search === "") {
+            //             withdrawals = await WithdrawalModel.find({
+            //                 status: "pending",
+            //                 createdAt: {
+            //                     $gte: fromDate.toISOString(),
+            //                     $lte: toDate.toISOString(),
+            //                 },
+            //             })
+            //                 .populate({ path: "user", select: "email" })
+            //                 .sort({ createdAt: -1 })
+            //                 .skip(LIMIT * (page - 1))
+            //                 .limit(LIMIT)
+            //                 .lean();
+            //             rows = await WithdrawalModel.countDocuments({
+            //                 status: "pending",
+            //             });
+            //         } else {
+            //             withdrawals =
+            //                 await adminService.findWithdrawalUsingSearchTerm({
+            //                     withdrawalStatus,
+            //                     page,
+            //                     search,
+            //                     fromDate,
+            //                     toDate,
+            //                     limit: LIMIT,
+            //                 });
+            //             rows =
+            //                 await adminService.findWithdrawalCountUsingSearchTerm(
+            //                     { withdrawalStatus, search }
+            //                 );
+            //         }
+            //         break;
+
+            //     case "approved":
+            //         if (search === "") {
+            //             withdrawals = await WithdrawalModel.find({
+            //                 status: "approved",
+            //                 processedAt: {
+            //                     $gte: fromDate.toISOString(),
+            //                     $lte: toDate.toISOString(),
+            //                 },
+            //             })
+            //                 .populate({ path: "user", select: "email" })
+            //                 .sort({ updatedAt: -1 })
+            //                 .skip(LIMIT * (page - 1))
+            //                 .limit(LIMIT)
+            //                 .lean();
+            //             rows = await WithdrawalModel.countDocuments({
+            //                 status: "approved",
+            //             });
+            //         } else {
+            //             withdrawals =
+            //                 await adminService.findWithdrawalUsingSearchTerm({
+            //                     withdrawalStatus,
+            //                     page,
+            //                     search,
+            //                     fromDate,
+            //                     toDate,
+            //                     limit: LIMIT,
+            //                 });
+            //             rows =
+            //                 await adminService.findWithdrawalCountUsingSearchTerm(
+            //                     { withdrawalStatus, search }
+            //                 );
+            //         }
+            //         break;
+
+            //     case "rejected":
+            //         if (search === "") {
+            //             withdrawals = await WithdrawalModel.find({
+            //                 status: "rejected",
+            //                 processedAt: {
+            //                     $gte: fromDate.toISOString(),
+            //                     $lte: toDate.toISOString(),
+            //                 },
+            //             })
+            //                 .populate({ path: "user", select: "email" })
+            //                 .sort({ updatedAt: -1 })
+            //                 .skip(LIMIT * (page - 1))
+            //                 .limit(LIMIT)
+            //                 .lean();
+            //             rows = await WithdrawalModel.countDocuments({
+            //                 status: "rejected",
+            //             });
+            //         } else {
+            //             withdrawals =
+            //                 await adminService.findWithdrawalUsingSearchTerm({
+            //                     withdrawalStatus,
+            //                     page,
+            //                     search,
+            //                     fromDate,
+            //                     toDate,
+            //                     limit: LIMIT,
+            //                 });
+            //             rows =
+            //                 await adminService.findWithdrawalCountUsingSearchTerm(
+            //                     { withdrawalStatus, search }
+            //                 );
+            //         }
+            // }
 
             return res.status(SuccessStatusCode.OPERATION_SUCCESSFUL).json({
                 withdrawals,
@@ -353,7 +440,7 @@ const AdminController = {
             if (withdrawalRequest && withdrawalRequest.status === "pending") {
                 const message = await adminService.processWithdrawalRequest({
                     processType,
-                    transactionId,
+                    transaction_id: transactionId,
                     remarks,
                     withdrawalRequest,
                 });
@@ -435,152 +522,28 @@ const AdminController = {
         try {
             const { defineTime = "last7Days" } = req.query;
 
-            let referralEventData;
-            let referralOverTimeData = [];
-
             let currentDate = new Date();
             let prevDate = new Date();
+
             currentDate.setUTCHours(0, 0, 0, 0);
             prevDate.setUTCHours(0, 0, 0, 0);
 
-            switch (defineTime) {
-                case "last7Days":
-                    prevDate.setDate(currentDate.getDate() - 7);
-
-                    referralEventData = await ReferralEventModel.aggregate([
-                        {
-                            $match: {
-                                createdAt: { $gte: prevDate, $lt: currentDate },
-                            },
-                        },
-                        {
-                            $group: {
-                                _id: {
-                                    $dateToString: {
-                                        format: "%Y-%m-%d",
-                                        date: "$createdAt",
-                                    },
-                                },
-                                count: {
-                                    $sum: 1,
-                                },
-                            },
-                        },
-                        {
-                            $sort: { _id: -1 },
-                        },
-                    ]);
-
-                    while (currentDate.getTime() > prevDate.getTime()) {
-                        referralOverTimeData.push({
-                            day: currentDate.getDate(),
-                            refers: 0,
-                        });
-                        referralEventData.forEach((ref) => {
-                            const refDate = new Date(ref._id);
-
-                            if (currentDate.getTime() === refDate.getTime()) {
-                                referralOverTimeData[
-                                    referralOverTimeData.length - 1
-                                ].refers = ref.count;
-                            }
-                        });
-                        currentDate.setDate(currentDate.getDate() - 1);
-                    }
-                    break;
-
-                case "thisMonth":
-                    prevDate.setDate(1);
-
-                    referralEventData = await ReferralEventModel.aggregate([
-                        {
-                            $match: {
-                                createdAt: { $gte: prevDate, $lt: currentDate },
-                            },
-                        },
-                        {
-                            $group: {
-                                _id: {
-                                    $dateToString: {
-                                        format: "%Y-%m-%d",
-                                        date: "$createdAt",
-                                    },
-                                },
-                                count: {
-                                    $sum: 1,
-                                },
-                            },
-                        },
-                        {
-                            $sort: { _id: 1 },
-                        },
-                    ]);
-
-                    while (currentDate.getTime() > prevDate.getTime()) {
-                        referralOverTimeData.push({
-                            day: prevDate.getDate(),
-                            refers: 0,
-                        });
-                        referralEventData.forEach((ref) => {
-                            const refDate = new Date(ref._id);
-
-                            if (prevDate.getTime() === refDate.getTime()) {
-                                referralOverTimeData[
-                                    referralOverTimeData.length - 1
-                                ].refers = ref.count;
-                            }
-                        });
-                        prevDate.setDate(prevDate.getDate() + 1);
-                    }
-                    break;
-
-                case "lastMonth":
-                    prevDate.setMonth(currentDate.getMonth() - 1);
-                    prevDate.setDate(1);
-                    currentDate.setDate(0);
-
-                    referralEventData = await ReferralEventModel.aggregate([
-                        {
-                            $match: {
-                                createdAt: { $gte: prevDate, $lt: currentDate },
-                            },
-                        },
-                        {
-                            $group: {
-                                _id: {
-                                    $dateToString: {
-                                        format: "%Y-%m-%d",
-                                        date: "$createdAt",
-                                    },
-                                },
-                                count: {
-                                    $sum: 1,
-                                },
-                            },
-                        },
-                        {
-                            $sort: { _id: 1 },
-                        },
-                    ]);
-
-                    while (currentDate.getTime() >= prevDate.getTime()) {
-                        referralOverTimeData.push({
-                            day: prevDate.getDate(),
-                            refers: 0,
-                        });
-                        referralEventData.forEach((ref) => {
-                            const refDate = new Date(ref._id);
-
-                            if (prevDate.getTime() === refDate.getTime()) {
-                                referralOverTimeData[
-                                    referralOverTimeData.length - 1
-                                ].refers = ref.count;
-                            }
-                        });
-                        prevDate.setDate(prevDate.getDate() + 1);
-                    }
-                    break;
+            if (defineTime === "last7Days") {
+                prevDate.setDate(currentDate.getDate() - 7);
+            } else if (defineTime === "thisMonth") {
+                prevDate.setDate(1);
+            } else if (defineTime === "lastMonth") {
+                prevDate.setMonth(currentDate.getMonth() - 1);
+                prevDate.setDate(1);
+                currentDate.setDate(0);
             }
+
+            const referralOverTimeData = await adminService.getReferralOverTime(
+                {
+                    fromDate: prevDate,
+                    toDate: currentDate,
+                }
+            );
 
             res.json({
                 success: true,
@@ -746,6 +709,8 @@ const AdminController = {
 
     getReferral: async (req, res, next) => {
         const LIMIT = 50;
+        const statusList = ["pending", "completed", "cancelled"];
+
         try {
             let {
                 referralStatus = "pending",
@@ -753,147 +718,40 @@ const AdminController = {
                 search = "",
                 fromDate = new Date(0),
                 toDate = new Date(),
+                searchIn = "referrer",
+                id = "",
+                searchIdIn = "referId",
             } = req.query;
 
-            let referrals, rows;
+            if (statusList.includes(referralStatus)) {
+                fromDate = new Date(fromDate);
+                toDate = new Date(toDate);
 
-            fromDate = new Date(fromDate);
-            toDate = new Date(toDate);
+                const referrals = await adminService.getReferral({
+                    page,
+                    referralStatus,
+                    search,
+                    fromDate,
+                    toDate,
+                    searchIn,
+                    id,
+                    searchIdIn,
+                    LIMIT,
+                });
 
-            switch (referralStatus) {
-                case "pending":
-                    if (search === "") {
-                        referrals = await ReferralEventModel.find({
-                            status: "pending",
-                            createdAt: {
-                                $gte: fromDate.toISOString(),
-                                $lte: toDate.toISOString(),
-                            },
-                        })
-                            .populate([
-                                {
-                                    path: "referrer_user_id",
-                                    select: "fullName mobileNum email",
-                                },
-                                {
-                                    path: "referee_user_id",
-                                    select: "fullName mobileNum email",
-                                },
-                            ])
-                            .sort({ updatedAt: 1 })
-                            .skip(LIMIT * (page - 1))
-                            .limit(LIMIT)
-                            .lean();
-                        rows = await ReferralEventModel.countDocuments({
-                            status: "pending",
-                        });
-                    } else {
-                        // withdrawals =
-                        //     await adminService.findWithdrawalUsingSearchTerm({
-                        //         withdrawalStatus,
-                        //         page,
-                        //         search,
-                        //         fromDate,
-                        //         toDate,
-                        //         limit: LIMIT,
-                        //     });
-                        // rows =
-                        //     await adminService.findWithdrawalCountUsingSearchTerm(
-                        //         { withdrawalStatus, search }
-                        //     );
-                    }
-                    break;
-
-                case "completed":
-                    if (search === "") {
-                        referrals = await ReferralEventModel.find({
-                            status: "completed",
-                            createdAt: {
-                                $gte: fromDate.toISOString(),
-                                $lte: toDate.toISOString(),
-                            },
-                        })
-                            .populate([
-                                {
-                                    path: "referrer_user_id",
-                                    select: "fullName mobileNum email",
-                                },
-                                {
-                                    path: "referee_user_id",
-                                    select: "fullName mobileNum email",
-                                },
-                            ])
-                            .sort({ updatedAt: 1 })
-                            .skip(LIMIT * (page - 1))
-                            .limit(LIMIT)
-                            .lean();
-                        rows = await ReferralEventModel.countDocuments({
-                            status: "completed",
-                        });
-                    } else {
-                        // withdrawals =
-                        //     await adminService.findWithdrawalUsingSearchTerm({
-                        //         withdrawalStatus,
-                        //         page,
-                        //         search,
-                        //         fromDate,
-                        //         toDate,
-                        //         limit: LIMIT,
-                        //     });
-                        // rows =
-                        //     await adminService.findWithdrawalCountUsingSearchTerm(
-                        //         { withdrawalStatus, search }
-                        //     );
-                    }
-                    break;
-
-                case "cancelled":
-                    if (search === "") {
-                        referrals = await ReferralEventModel.find({
-                            status: "cancelled",
-                            createdAt: {
-                                $gte: fromDate.toISOString(),
-                                $lte: toDate.toISOString(),
-                            },
-                        })
-                            .populate([
-                                {
-                                    path: "referrer_user_id",
-                                    select: "fullName mobileNum email",
-                                },
-                                {
-                                    path: "referee_user_id",
-                                    select: "fullName mobileNum email",
-                                },
-                            ])
-                            .sort({ updatedAt: 1 })
-                            .skip(LIMIT * (page - 1))
-                            .limit(LIMIT)
-                            .lean();
-                        rows = await ReferralEventModel.countDocuments({
-                            status: "cancelled",
-                        });
-                    } else {
-                        // withdrawals =
-                        //     await adminService.findWithdrawalUsingSearchTerm({
-                        //         withdrawalStatus,
-                        //         page,
-                        //         search,
-                        //         fromDate,
-                        //         toDate,
-                        //         limit: LIMIT,
-                        //     });
-                        // rows =
-                        //     await adminService.findWithdrawalCountUsingSearchTerm(
-                        //         { withdrawalStatus, search }
-                        //     );
-                    }
+                return res.status(HTTPStatus.SUCCESS).json({
+                    rows: referrals[0]?.totalCount[0]?.total || 0,
+                    referrals: referrals[0]?.referrals || [],
+                    status: referralStatus,
+                });
+            } else {
+                return next(
+                    createHttpError(HTTPStatus.BAD_REQUEST, {
+                        code: "INVALIDATE_REFERRAL_STATUS",
+                        message: "Referral status is invalid",
+                    })
+                );
             }
-            return res.status(HTTPStatus.SUCCESS).json({
-                referrals,
-                rows,
-                referralStatus,
-            });
         } catch (error) {
             logger.error(`GET: referrals ${error.message}`);
 

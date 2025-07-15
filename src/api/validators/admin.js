@@ -22,3 +22,12 @@ export const agentAccountStatus = Joi.string().valid(
     "deactivate"
 );
 
+
+export const ValidateMultipleUserQuery = Joi.object({
+    page: Joi.number().min(1),
+    pageSize: Joi.number().min(10),
+    search: Joi.string().trim(),
+    searchFor: Joi.string().valid("name", "phone", "email"),
+    sortBy: Joi.string().trim(),
+    sortDir: Joi.string().valid("asc", "desc"),
+})

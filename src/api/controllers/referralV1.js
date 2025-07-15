@@ -3,6 +3,7 @@ import ReferralUserModelV1 from "../../db/models/ReferralUserV1.js";
 import {
     ErrorCodes,
     ErrorStatusCode,
+    HTTPStatus,
     SuccessStatusCode,
 } from "../../utils/constant.js";
 import generateReferralCode from "../../utils/genReferralCodeV1.js";
@@ -245,9 +246,6 @@ const referralController = {
     },
 
     withdrawal: async (req, res, next) => {
-        const MIN_WITHDRAWAL_AMOUNT = 5000;
-        const MAX_WITHDRAWAL_LIMIT = 2;
-
         const session = await mongoose.startSession();
         session.startTransaction();
 
@@ -257,16 +255,13 @@ const referralController = {
 
             const { error } = AmountValidation.validate(amount);
             if (error || !objectIdValidation(userID)) {
-                // return next(
-                //     createHttpError(ErrorStatusCode.VALIDATION_INVALID_FORMAT, {
-                //         code: ErrorCodes.VALIDATION_INVALID_FORMAT,
-                //         message: "Invalidation error",
-                //     })
-                // );
-                return res.json({
-                    success: false,
-                    message: "Validation Error",
-                });
+                return next(
+                    createHttpError(HTTPStatus.BAD_REQUEST, {
+                        code: "INVALIDATE_FORMAT",
+                        message: "Amount is invalidate",
+                    })
+                );
+                
             }
 
             const referralRules = await ReferralRuleModel.findOne({});
@@ -276,16 +271,12 @@ const referralController = {
             });
 
             if (!referralUser) {
-                // return next(
-                //     createHttpError(ErrorStatusCode.RESOURCE_NOT_FOUND, {
-                //         code: ErrorCodes.RESOURCE_NOT_FOUND,
-                //         message: "User with this ID not found!",
-                //     })
-                // );
-                return res.json({
-                    success: false,
-                    message: "User doesn't exits with this ID",
-                });
+                return next(
+                    createHttpError(HTTPStatus.NOT_FOUND, {
+                        code: "USER_NOT_FOUND",
+                        message: "User with this ID not found!",
+                    })
+                );
             }
 
             const lowerTimeAbsolute =
@@ -349,7 +340,7 @@ const referralController = {
 
             const newWithdrawal = await WithdrawalModel.insertOne({
                 user: referralUser.user,
-                referralUser: referralUser._id,
+                referral_user: referralUser._id,
                 amount: Number(amount),
                 bank: {
                     name: primaryBank.bankName,
@@ -357,7 +348,6 @@ const referralController = {
                     accountNumber: primaryBank.accountNumber,
                     codeIFSC: primaryBank.codeIFSC,
                 },
-                requestedAt: new Date(),
             });
 
             // Update referral user wallet
