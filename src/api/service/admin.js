@@ -142,7 +142,7 @@ const adminService = {
                     { session }
                 );
                 await ReferralUserModelV1.findByIdAndUpdate(
-                    withdrawalRequest.referralUser,
+                    withdrawalRequest.referral_user,
                     {
                         $inc: {
                             "wallet.pendingWithdrawal":
@@ -719,6 +719,9 @@ const adminService = {
                                 referralStats: 1,
                             },
                         },
+                        { $sort: { updatedAt: -1 } },
+                        { $skip: pageSize * (page - 1) },
+                        { $limit: pageSize },
                     ],
                     totalCount: [
                         { $group: { _id: "$_id" } }, // Group by user to get distinct count
