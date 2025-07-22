@@ -1,5 +1,6 @@
 import express from "express";
 import AdminAuthController from "../controllers/adminAuth.js";
+import { detectDevice } from "../middlewares/detectDevice.js";
 // import AuthController from "../controllers/agentAuth.js";
 
 const AuthRouter = express.Router();
@@ -9,7 +10,7 @@ const AuthRouter = express.Router();
 // AuthRouter.post("/logout", AuthController.logout);
 
 // Admin Authentication
-AuthRouter.post("/admin/login", AdminAuthController.login);
+AuthRouter.post("/admin/login", detectDevice, AdminAuthController.login);
 AuthRouter.post("/admin/register", AdminAuthController.register);
 
 export default AuthRouter;

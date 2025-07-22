@@ -16,6 +16,7 @@ import {
 import {
     agentAccountStatus,
     objectIdValidation,
+    passwordChangeSchema,
     processWithdrawalValidation,
     ValidateMultipleUserQuery,
     validatePageLimitSearch,
@@ -25,6 +26,9 @@ import ReferralEventModel from "../../db/models/ReferralEventsV1.js";
 import ReferralUserModelV1 from "../../db/models/ReferralUserV1.js";
 import { cronJobStatus, referralScript } from "../../../scripts/referral.js";
 import ReferralRuleModel from "../../db/models/ReferralRules.js";
+import SessionModel from "../../db/models/Session.js";
+import AdminModel from "../../db/models/admin.js";
+import { comparePassword, hashPasswordFn } from "../../utils/password.js";
 
 const AdminController = {
     getDashboardAnalytics: async (req, res, next) => {
@@ -148,20 +152,19 @@ const AdminController = {
                 );
             }
 
-            const result =
-                await adminService.getMultipleReferralUsers({
-                    page,
-                    pageSize,
-                    search,
-                    searchFor,
-                    sortBy,
-                    sortDir,
-                });
+            const result = await adminService.getMultipleReferralUsers({
+                page: parseInt(page),
+                pageSize: parseInt(pageSize),
+                search,
+                searchFor,
+                sortBy,
+                sortDir,
+            });
 
             res.status(HTTPStatus.SUCCESS).json({
                 referralUsers: result[0]?.referralUsers,
                 rows: result[0]?.totalCount[0]?.total || 0,
-            })
+            });
         } catch (error) {
             logger.error(`GET: referrals ${error.message}`);
 
@@ -753,6 +756,151 @@ const AdminController = {
             }
         } catch (error) {
             logger.error(`GET: referrals ${error.message}`);
+
+            return next(
+                createHttpError(HTTPStatus.SERVER_ERROR, {
+                    code: "SERVER_ERROR",
+                    message: error.message,
+                })
+            );
+        }
+    },
+
+    getSession: async (req, res, next) => {
+        try {
+            const sessions = await SessionModel.find({
+                admin: req.sessionInfo.adminId,
+                isActive: true,
+            })
+                .select("device loginAt lastActivity")
+                .sort({ updatedAt: -1 });
+
+            return res.status(HTTPStatus.SUCCESS).json({
+                sessions: sessions,
+            });
+        } catch (error) {
+            logger.error(`GET: referrals ${error.message}`);
+
+            return next(
+                createHttpError(HTTPStatus.SERVER_ERROR, {
+                    code: "SERVER_ERROR",
+                    message: error.message,
+                })
+            );
+        }
+    },
+
+    revokeSession: async (req, res, next) => {
+        try {
+            const { sessionId } = req.body;
+
+            const session = await SessionModel.findById(sessionId);
+
+            if (!session.isActive) {
+                return res.status(HTTPStatus.SUCCESS).json({
+                    success: true,
+                    message: "Session is already revoked!",
+                });
+            }
+
+            session.isActive = false;
+            await session.save();
+
+            res.status(HTTPStatus.SUCCESS).json({
+                success: true,
+                message: "Session revoked successfully!",
+            });
+        } catch (error) {
+            logger.error(`PATCH: revoke session ${error.message}`);
+
+            return next(
+                createHttpError(HTTPStatus.SERVER_ERROR, {
+                    code: "SERVER_ERROR",
+                    message: error.message,
+                })
+            );
+        }
+    },
+
+    logout: async (req, res, next) => {
+        try {
+            const sessionId = req.sessionInfo.id;
+
+            const session = await SessionModel.findById(sessionId);
+
+            if (!session.isActive) {
+                return res.status(HTTPStatus.SUCCESS).json({
+                    success: true,
+                    message: "Session is already revoked!",
+                });
+            }
+
+            session.isActive = false;
+            await session.save();
+
+            res.status(HTTPStatus.SUCCESS).json({
+                success: true,
+                message: "Session revoked successfully!",
+            });
+        } catch (error) {
+            logger.error(`PATCH: revoke session ${error.message}`);
+
+            return next(
+                createHttpError(HTTPStatus.SERVER_ERROR, {
+                    code: "SERVER_ERROR",
+                    message: error.message,
+                })
+            );
+        }
+    },
+
+    resetPassword: async (req, res, next) => {
+        try {
+            const { currentPassword, newPassword, confirmPassword } = req.body;
+
+            const { error } = passwordChangeSchema.validate({
+                currentPassword,
+                newPassword,
+                confirmPassword,
+            });
+            if (error) {
+                return res.status(HTTPStatus.BAD_REQUEST).json({
+                    error: {
+                        code: "VALIDATION_ERROR",
+                        message: "Query is invalid",
+                        details: {
+                            field: error.details[0].path[0],
+                            message: error.details[0].message,
+                        },
+                    },
+                });
+            }
+
+            const admin = await AdminModel.findById(req.sessionInfo.adminId);
+            const isPasswordMatched = await comparePassword(
+                currentPassword,
+                admin.password
+            );
+            if (!isPasswordMatched) {
+                return next(
+                    createHttpError(HTTPStatus.BAD_REQUEST, {
+                        code: "INVALID_PASSWORD",
+                        message: "Current password is wrong!",
+                    })
+                );
+            }
+
+            const newPasswordHash = await hashPasswordFn(newPassword);
+
+            admin.password = newPasswordHash;
+            await admin.save();
+
+            res.status(HTTPStatus.SUCCESS).json({
+                success: true,
+                message: "Password reset successfully!"
+            })
+        } catch (error) {
+            logger.error(`PATCH: password reset ${error.message}`);
 
             return next(
                 createHttpError(HTTPStatus.SERVER_ERROR, {

@@ -1,8 +1,10 @@
 import createHttpError from "http-errors";
-import logger from "../../logging/index.js";
 import jwt from "jsonwebtoken";
+import logger from "../../logging/index.js";
 import AdminModel from "../../db/models/admin.js";
+import SessionModel from "../../db/models/Session.js";
 import { comparePassword, hashPasswordFn } from "../../utils/password.js";
+import { genAdminId } from "../../utils/genAdminId.js";
 import {
     ACCESS_TOKEN_SECRET,
     ErrorCodes,
@@ -10,17 +12,15 @@ import {
     HTTPStatus,
     SuccessStatusCode,
 } from "../../utils/constant.js";
-import {
-    loginValidationSchema,
-    registerValidationSchema,
-} from "../validators/auth.js";
+import { loginSchema, registerSchema } from "../validators/auth.js";
 
 const AdminAuthController = {
     async login(req, res, next) {
         try {
             const { email, password } = req.body;
 
-            const { error } = loginValidationSchema.validate({
+            // Validation
+            const { error } = loginSchema.validate({
                 email,
                 password,
             });
@@ -35,6 +35,7 @@ const AdminAuthController = {
 
             const admin = await AdminModel.findOne({ email });
             if (!admin) {
+                console.error(error);
                 return next(
                     createHttpError(HTTPStatus.UNAUTHORIZED, {
                         code: "INVALID_CREDENTIALS",
@@ -43,10 +44,10 @@ const AdminAuthController = {
                 );
             }
 
-            // Check if password is correct or not
+            // Password matching
             const isPasswordMatched = await comparePassword(
                 password,
-                admin.passwordHash
+                admin.password
             );
             if (!isPasswordMatched) {
                 return next(
@@ -57,14 +58,25 @@ const AdminAuthController = {
                 );
             }
 
-            // Generate tokens
+            // Generate token and create session
             const token = jwt.sign({ _id: admin._id }, ACCESS_TOKEN_SECRET, {
                 expiresIn: "7d",
+            });
+            const session = await SessionModel.create({
+                admin: admin._id,
+                device: {
+                    type: req.deviceInfo.type,
+                    os: req.deviceInfo.os,
+                    browser: req.deviceInfo.browser,
+                },
+                ipAddress: req.deviceInfo.ip,
+                userAgent: req.deviceInfo.userAgent,
+                token: token,
             });
 
             res.status(HTTPStatus.SUCCESS).json({
                 success: true,
-                token,
+                token: session.token,
             });
         } catch (error) {
             logger.error(
@@ -82,10 +94,12 @@ const AdminAuthController = {
 
     async register(req, res, next) {
         try {
-            const { email, password, confirmPassword } = req.body;
+            const { email, role, password, confirmPassword } = req.body;
 
-            const { error } = registerValidationSchema.validate({
+            // Validation
+            const { error } = registerSchema.validate({
                 email,
+                role,
                 password,
                 confirmPassword,
             });
@@ -109,12 +123,15 @@ const AdminAuthController = {
                 );
             }
 
-            // Hash password
-            const passwordHash = await hashPasswordFn(password);
+            // Hash the password and generate new admin id
+            const hashPassword = await hashPasswordFn(password);
+            const adminId = genAdminId();
 
             await AdminModel.insertOne({
                 email,
-                passwordHash,
+                role,
+                adminId,
+                password: hashPassword,
             });
 
             res.status(SuccessStatusCode.OPERATION_SUCCESSFUL).json({

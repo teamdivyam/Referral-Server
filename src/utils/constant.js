@@ -106,3 +106,9 @@ export const HTTPStatus = {
     TOO_MANY_REQUESTS: 429, // API throttling
     SERVER_ERROR: 500,       // Backend failure
 };
+
+export const ROLES = {
+    ADMIN: 'admin',
+    SUPPORT: 'support',
+};
+

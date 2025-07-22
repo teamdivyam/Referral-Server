@@ -579,7 +579,7 @@ const adminService = {
         searchFor,
         sortBy,
         sortDir,
-    }) => {
+    }) => { 
         try {
             const referralPipeline = [
                 {
