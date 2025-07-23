@@ -1,23 +1,23 @@
+import mongoose from "mongoose";
 import createHttpError from "http-errors";
-import ReferralUserModelV1 from "../../db/models/ReferralUserV1.js";
+import ReferralUserModel from "../../db/models/ReferralUserModel.js";
+import ReferralEventModel from "../../db/models/ReferralEventModel.js";
+import UserModel from "../../db/models/UserModel.js";
+import ReferralWithdrawalModel from "../../db/models/ReferralWithdrawalModel.js";
+import ReferralRuleModel from "../../db/models/ReferralRulesModel.js";
+import generateReferralCode from "../../utils/generateCode.js";
+import logger from "../../logging/index.js";
 import {
     ErrorCodes,
     ErrorStatusCode,
     HTTPStatus,
     SuccessStatusCode,
 } from "../../utils/constant.js";
-import generateReferralCode from "../../utils/genReferralCodeV1.js";
-import logger from "../../logging/index.js";
-import ReferralEventModel from "../../db/models/ReferralEventsV1.js";
-import UserModel from "../../db/models/user.js";
-import WithdrawalModel from "../../db/models/ReferralWithdrawalV1.js";
-import mongoose from "mongoose";
 import {
     AmountValidation,
     BankValidation,
     objectIdValidation,
 } from "../validators/referral.js";
-import ReferralRuleModel from "../../db/models/ReferralRules.js";
 
 const referralController = {
     createReferralUser: async (req, res, next) => {
@@ -27,43 +27,45 @@ const referralController = {
             const user = await UserModel.findById(userID);
 
             if (!user) {
-                return res.json({
-                    success: false,
-                    message: "User doesn't exits with this ID",
-                });
+                return next(
+                    createHttpError(HTTPStatus.BAD_REQUEST, {
+                        code: "VALIDATION_FORMAT",
+                        message: "User ID is invalid",
+                    })
+                );
             }
             if (user.refer.isReferrer) {
-                return res.json({
-                    success: false,
-                    message: "User already have a referral code",
-                });
+                return next(
+                    createHttpError(HTTPStatus.FORBIDDEN, {
+                        code: "BAD_REQUEST",
+                        message: "User already have a referral code",
+                    })
+                );
             }
 
             const referralCode = generateReferralCode();
 
-            const newReferralUser = await ReferralUserModelV1.insertOne({
+            const newReferralUser = await ReferralUserModel.insertOne({
                 user: userID,
                 referralCode,
             });
-
-            console.log(newReferralUser);
 
             user.refer.isReferrer = true;
             user.refer.referralId = newReferralUser._id;
 
             await user.save();
 
-            res.status(SuccessStatusCode.RESOURCE_CREATED).json({
+            res.status(HTTPStatus.RESOURCES_CREATED).json({
                 success: true,
             });
         } catch (error) {
             logger.error(
-                `Error in creating referral user: ${error.message}, Error stack: ${error.stack}`
+                `POST: create-referral-user ${error.message}, Error stack: ${error.stack}`
             );
 
             return next(
-                createHttpError(ErrorStatusCode.SERVER_DATABASE_ERROR, {
-                    code: ErrorCodes.SERVER_DATABASE_ERROR,
+                createHttpError(HTTPStatus.SERVER_ERROR, {
+                    code: "SERVER_ERROR",
                     message: "Internal Server Error",
                 })
             );
@@ -74,36 +76,40 @@ const referralController = {
         try {
             const { userID } = req.params;
 
-            const user = await ReferralUserModelV1.findOne({
+            if (!objectIdValidation(userID)) {
+                return next(
+                    createHttpError(HTTPStatus.BAD_REQUEST, {
+                        code: "VALIDATION_FORMAT",
+                        message: "User ID is invalid",
+                    })
+                );
+            }
+
+            const user = await ReferralUserModel.findOne({
                 user: userID,
             }).populate("user wallet.withdrawals");
 
             if (!user) {
-                // return next(
-                //     createHttpError(ErrorStatusCode.RESOURCE_NOT_FOUND, {
-                //         code: ErrorCodes.RESOURCE_NOT_FOUND,
-                //         message:
-                //             "User is not registered for refer & earn program!",
-                //     })
-                // );
-                return res.json({
-                    success: false,
-                    message: "User doesn't exits with this ID",
-                });
+                return next(
+                    createHttpError(HTTPStatus.BAD_REQUEST, {
+                        code: "BAD_REQUEST",
+                        message: "User doesn't exits with this ID",
+                    })
+                );
             }
 
-            res.status(SuccessStatusCode.OPERATION_SUCCESSFUL).json({
+            res.status(HTTPStatus.SUCCESS).json({
                 success: true,
                 user,
             });
         } catch (error) {
             logger.error(
-                `Error in retreiving referral user: ${error.message}, Error stack: ${error.stack}`
+                `GET: referral-user ${error.message}, Error stack: ${error.stack}`
             );
 
             return next(
-                createHttpError(ErrorStatusCode.SERVER_DATABASE_ERROR, {
-                    code: ErrorCodes.SERVER_DATABASE_ERROR,
+                createHttpError(HTTPStatus.SERVER_ERROR, {
+                    code: "SERVER_ERROR",
                     message: "Internal Server Error",
                 })
             );
@@ -114,7 +120,16 @@ const referralController = {
         try {
             const { userID } = req.params;
 
-            const referral = await ReferralUserModelV1.find({ user: userID })
+            if (!objectIdValidation(userID)) {
+                return next(
+                    createHttpError(HTTPStatus.BAD_REQUEST, {
+                        code: "VALIDATION_FORMAT",
+                        message: "User ID is invalid",
+                    })
+                );
+            }
+
+            const referral = await ReferralUserModel.find({ user: userID })
                 .select("referralCode referralEvents")
                 .populate({
                     path: "referralEvents",
@@ -122,10 +137,12 @@ const referralController = {
                 });
 
             if (!referral) {
-                return res.json({
-                    success: false,
-                    message: "User doesn't exists with this ID!",
-                });
+                return next(
+                    createHttpError(HTTPStatus.NOT_FOUND, {
+                        code: "USERS_REFERRAL_NOT_FOUND",
+                        message: "User referral not found",
+                    })
+                );
             }
 
             res.json({
@@ -134,12 +151,12 @@ const referralController = {
             });
         } catch (error) {
             logger.error(
-                `Error in finding user referral: ${error.message}, Error stack: ${error.stack}`
+                `GET: user-referrals ${error.message}, Error stack: ${error.stack}`
             );
 
             return next(
-                createHttpError(ErrorStatusCode.SERVER_DATABASE_ERROR, {
-                    code: ErrorCodes.SERVER_DATABASE_ERROR,
+                createHttpError(HTTPStatus.SERVER_ERROR, {
+                    code: "SERVER_ERROR",
                     message: "Internal Server Error",
                 })
             );
@@ -150,7 +167,7 @@ const referralController = {
         try {
             const { userID } = req.params;
 
-            const user = await ReferralUserModelV1.findOne({
+            const user = await ReferralUserModel.findOne({
                 user: userID,
             })
                 .select("wallet")
@@ -160,30 +177,25 @@ const referralController = {
                 });
 
             if (!user) {
-                // return next(
-                //     createHttpError(ErrorStatusCode.RESOURCE_NOT_FOUND, {
-                //         code: ErrorCodes.RESOURCE_NOT_FOUND,
-                //         message:
-                //             "User is not registered for refer & earn program!",
-                //     })
-                // );
-                return res.json({
-                    success: false,
-                    message: "User doesn't exits with this ID",
-                });
+                return next(
+                    createHttpError(HTTPStatus.BAD_REQUEST, {
+                        code: "VALIDATION_FORMAT",
+                        message: "User ID is invalid",
+                    })
+                );
             }
 
-            res.status(SuccessStatusCode.OPERATION_SUCCESSFUL).json({
+            res.status(HTTPStatus.SUCCESS).json({
                 wallet: user.wallet,
             });
         } catch (error) {
             logger.error(
-                `Error in retreiving wallet: ${error.message}, Error stack: ${error.stack}`
+                `GET: user-wallet ${error.message}, Error stack: ${error.stack}`
             );
 
             return next(
-                createHttpError(ErrorStatusCode.SERVER_DATABASE_ERROR, {
-                    code: ErrorCodes.SERVER_DATABASE_ERROR,
+                createHttpError(HTTPStatus.SERVER_ERROR, {
+                    code: "SERVER_ERROR",
                     message: "Internal Server Error",
                 })
             );
@@ -194,7 +206,7 @@ const referralController = {
         try {
             const { referralCode, refereeId, orderId, amount } = req.query;
 
-            const referralUser = await ReferralUserModelV1.findOne({
+            const referralUser = await ReferralUserModel.findOne({
                 referralCode,
             });
 
@@ -218,7 +230,7 @@ const referralController = {
                 referee_user_id: refereeId,
                 referral_code: referralUser.referralCode,
                 order: orderId,
-                amount: amount
+                amount: amount,
             });
 
             referralUser.wallet.pendingBalance += Number(
@@ -233,12 +245,12 @@ const referralController = {
             });
         } catch (error) {
             logger.error(
-                `Error in create referral event: ${error.message}, Error stack: ${error.stack}`
+                `POST: create-referral-event ${error.message}, Error stack: ${error.stack}`
             );
 
             return next(
-                createHttpError(ErrorStatusCode.SERVER_DATABASE_ERROR, {
-                    code: ErrorCodes.SERVER_DATABASE_ERROR,
+                createHttpError(HTTPStatus.SERVER_ERROR, {
+                    code: "SERVER_ERROR",
                     message: "Internal Server Error",
                 })
             );
@@ -261,12 +273,11 @@ const referralController = {
                         message: "Amount is invalidate",
                     })
                 );
-                
             }
 
             const referralRules = await ReferralRuleModel.findOne({});
 
-            const referralUser = await ReferralUserModelV1.findOne({
+            const referralUser = await ReferralUserModel.findOne({
                 user: userID,
             });
 
@@ -288,7 +299,7 @@ const referralController = {
                 upperTime.toISOString().slice(0, 10) + "T00:00:00.000Z";
 
             const todayWithdrawalQuantity =
-                await WithdrawalModel.countDocuments({
+                await ReferralWithdrawalModel.countDocuments({
                     referralUser: referralUser._id,
                     requestedAt: {
                         $gte: lowerTimeAbsolute,
@@ -338,7 +349,7 @@ const referralController = {
                 (account) => account.isPrimary
             );
 
-            const newWithdrawal = await WithdrawalModel.insertOne({
+            const newWithdrawal = await ReferralWithdrawalModel.insertOne({
                 user: referralUser.user,
                 referral_user: referralUser._id,
                 amount: Number(amount),
@@ -365,12 +376,12 @@ const referralController = {
             session.endSession();
 
             logger.error(
-                `Error in initating withdrawal: ${error.message}, Error stack: ${error.stack}`
+                `PATCH: withdrawal ${error.message}, Error stack: ${error.stack}`
             );
 
             return next(
-                createHttpError(ErrorStatusCode.SERVER_DATABASE_ERROR, {
-                    code: ErrorCodes.SERVER_DATABASE_ERROR,
+                createHttpError(HTTPStatus.SERVER_ERROR, {
+                    code: "SERVER_ERROR",
                     message: "Internal Server Error",
                 })
             );
@@ -385,49 +396,37 @@ const referralController = {
 
             const { error } = BankValidation.validate(req.body);
             if (error) {
-                // return next(
-                //     createHttpError(ErrorStatusCode.VALIDATION_INVALID_FORMAT, {
-                //         code: ErrorCodes.VALIDATION_INVALID_FORMAT,
-                //         message: "Validation error",
-                //     })
-                // );
-                return res.json({
-                    success: false,
-                    message: "Validation Error!",
-                });
+                return next(
+                    createHttpError(HTTPStatus.BAD_REQUEST, {
+                        code: "BAD_REQUEST",
+                        message: "User doesn't exits with this ID",
+                    })
+                );
             }
 
-            const referralUser = await ReferralUserModelV1.findOne({
+            const referralUser = await ReferralUserModel.findOne({
                 user: userID,
             });
 
             if (!referralUser) {
-                // return next(
-                //     createHttpError(ErrorStatusCode.RESOURCE_NOT_FOUND, {
-                //         code: ErrorCodes.RESOURCE_NOT_FOUND,
-                //         message: "User is not exists!",
-                //     })
-                // );
-                return res.json({
-                    success: false,
-                    message: "User doesn't exits with this ID",
-                });
+                return next(
+                    createHttpError(HTTPStatus.BAD_REQUEST, {
+                        code: "",
+                        message: "User is not exists!",
+                    })
+                );
             }
 
             const isMatchAccountNo = referralUser.wallet.accounts.find(
                 (account) => account.accountNumber === accountNumber
             );
             if (isMatchAccountNo) {
-                // return next(
-                //     createHttpError(ErrorStatusCode.RESOURCE_ALREADY_EXISTS, {
-                //         code: ErrorCodes.RESOURCE_ALREADY_EXISTS,
-                //         message: "Account already exists!",
-                //     })
-                // );
-                return res.json({
-                    success: false,
-                    message: "Account already exits",
-                });
+                return next(
+                    createHttpError(HTTPStatus.BAD_REQUEST, {
+                        code: ErrorCodes.RESOURCE_ALREADY_EXISTS,
+                        message: "Account already exists!",
+                    })
+                );
             }
 
             // Make this account primary if it is first account attached to referral user
@@ -455,12 +454,12 @@ const referralController = {
             });
         } catch (error) {
             logger.error(
-                `Error in adding bank account: ${error.message}, Error stack: ${error.stack}`
+                `POST: add-bank-account ${error.message}, Error stack: ${error.stack}`
             );
 
-            return next(
-                createHttpError(ErrorStatusCode.SERVER_DATABASE_ERROR, {
-                    code: ErrorCodes.SERVER_DATABASE_ERROR,
+            next(
+                createHttpError(HTTPStatus.SERVER_ERROR, {
+                    code: "SERVER_ERROR",
                     message: "Internal Server Error",
                 })
             );
@@ -472,7 +471,7 @@ const referralController = {
             const { userID } = req.params;
             const { bankAccountID } = req.query;
 
-            const referralUser = await ReferralUserModelV1.findOne({
+            const referralUser = await ReferralUserModel.findOne({
                 user: userID,
             });
 
@@ -513,9 +512,14 @@ const referralController = {
         try {
             const { userID, referralCode } = req.query;
 
-            const validReferralCode = await ReferralUserModelV1.findOne({ referralCode });
+            const validReferralCode = await ReferralUserModel.findOne({
+                referralCode,
+            });
 
-            if (!validReferralCode || validReferralCode.accountStatus === "deactive") {
+            if (
+                !validReferralCode ||
+                validReferralCode.accountStatus === "deactive"
+            ) {
                 return res.json({
                     success: false,
                     message: "Invalid referral code.",
@@ -545,8 +549,6 @@ const referralController = {
             );
         }
     },
-
-    
 };
 
 export default referralController;

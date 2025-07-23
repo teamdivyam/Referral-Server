@@ -1,9 +1,9 @@
 import cron from "node-cron";
 import mongoose from "mongoose";
 
-import ReferralEventModel from "../src/db/models/ReferralEventsV1.js";
-import ReferralUserModelV1 from "../src/db/models/ReferralUserV1.js";
-import OrderModel from "../src/db/models/order.js";
+import ReferralEventModel from "../src/db/models/ReferralEventModel.js";
+import ReferralUserModelV1 from "../src/db/models/ReferralUserModel.js";
+import OrderModel from "../src/db/models/OrderModel.js";
 
 let cronJob = null;
 let lastExecutionTime = null;

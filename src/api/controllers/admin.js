@@ -1,18 +1,14 @@
 import createHttpError from "http-errors";
-import adminService from "../service/admin.js";
+import WithdrawalModel from "../../db/models/ReferralWithdrawalModel.js";
+import ReferralUserModel from "../../db/models/ReferralUserModel.js";
+import ReferralRuleModel from "../../db/models/ReferralRulesModel.js";
+import SessionModel from "../../db/models/SessionModel.js";
+import AdminModel from "../../db/models/AdminModel.js";
 import logger from "../../logging/index.js";
-
-import {
-    ErrorStatusCode,
-    ErrorCodes,
-    SuccessStatusCode,
-    HTTPStatus,
-} from "../../utils/constant.js";
-import {
-    activateAccount,
-    deactivateAccount,
-    findWithdrawalRequestById,
-} from "../service/admin.js";
+import adminService from "../service/admin.js";
+import { HTTPStatus } from "../../utils/constant.js";
+import { cronJobStatus, referralScript } from "../../../scripts/referral.js";
+import { comparePassword, hashPasswordFn } from "../../utils/hashPassword.js";
 import {
     agentAccountStatus,
     objectIdValidation,
@@ -21,14 +17,6 @@ import {
     ValidateMultipleUserQuery,
     validatePageLimitSearch,
 } from "../validators/admin.js";
-import WithdrawalModel from "../../db/models/ReferralWithdrawalV1.js";
-import ReferralEventModel from "../../db/models/ReferralEventsV1.js";
-import ReferralUserModelV1 from "../../db/models/ReferralUserV1.js";
-import { cronJobStatus, referralScript } from "../../../scripts/referral.js";
-import ReferralRuleModel from "../../db/models/ReferralRules.js";
-import SessionModel from "../../db/models/Session.js";
-import AdminModel from "../../db/models/admin.js";
-import { comparePassword, hashPasswordFn } from "../../utils/password.js";
 
 const AdminController = {
     getDashboardAnalytics: async (req, res, next) => {
@@ -54,12 +42,6 @@ const AdminController = {
         } catch (error) {
             logger.error(`GET admin-dashboard-analytics: ${error.message}`);
 
-            res.status(HTTPStatus.SERVER_ERROR).json({
-                error: {
-                    code: "SERVER_ERROR",
-                    message: error.message,
-                },
-            });
             next(
                 createHttpError(HTTPStatus.SERVER_ERROR, {
                     code: "SERVER_ERROR",
@@ -78,16 +60,16 @@ const AdminController = {
                 limit,
             });
             if (error) {
-                return res.status(HTTPStatus.BAD_REQUEST).json({
-                    error: {
-                        code: "VALIDATION_ERROR",
-                        message: "Query is invalid",
+                return next(
+                    createHttpError(HTTPStatus.BAD_REQUEST, {
+                        code: "INVALIDATION_QUERY",
+                        message: "Query is Invalid",
                         details: {
                             field: error.details[0].path[0],
                             message: error.details[0].message,
                         },
-                    },
-                });
+                    })
+                );
             }
 
             const referralUsers =
@@ -231,27 +213,7 @@ const AdminController = {
                 toDate = new Date(),
             } = req.query;
 
-            let withdrawals, rows;
-
-            if (statusList.includes(withdrawalStatus)) {
-                fromDate = new Date(fromDate);
-                toDate = new Date(toDate);
-
-                const withdrawals = await adminService.getWithdrawal({
-                    withdrawalStatus,
-                    page,
-                    search,
-                    fromDate,
-                    toDate,
-                    LIMIT,
-                });
-
-                return res.status(HTTPStatus.SUCCESS).json({
-                    rows: withdrawals[0]?.totalCount[0]?.total || 0,
-                    withdrawals: withdrawals[0]?.withdrawals || [],
-                    status: withdrawalStatus,
-                });
-            } else {
+            if (!statusList.includes(withdrawalStatus)) {
                 return next(
                     createHttpError(HTTPStatus.BAD_REQUEST, {
                         code: "INVALIDATE_REFERRAL_STATUS",
@@ -260,113 +222,22 @@ const AdminController = {
                 );
             }
 
-            // switch (withdrawalStatus) {
-            //     case "pending":
-            //         if (search === "") {
-            //             withdrawals = await WithdrawalModel.find({
-            //                 status: "pending",
-            //                 createdAt: {
-            //                     $gte: fromDate.toISOString(),
-            //                     $lte: toDate.toISOString(),
-            //                 },
-            //             })
-            //                 .populate({ path: "user", select: "email" })
-            //                 .sort({ createdAt: -1 })
-            //                 .skip(LIMIT * (page - 1))
-            //                 .limit(LIMIT)
-            //                 .lean();
-            //             rows = await WithdrawalModel.countDocuments({
-            //                 status: "pending",
-            //             });
-            //         } else {
-            //             withdrawals =
-            //                 await adminService.findWithdrawalUsingSearchTerm({
-            //                     withdrawalStatus,
-            //                     page,
-            //                     search,
-            //                     fromDate,
-            //                     toDate,
-            //                     limit: LIMIT,
-            //                 });
-            //             rows =
-            //                 await adminService.findWithdrawalCountUsingSearchTerm(
-            //                     { withdrawalStatus, search }
-            //                 );
-            //         }
-            //         break;
+            fromDate = new Date(fromDate);
+            toDate = new Date(toDate);
 
-            //     case "approved":
-            //         if (search === "") {
-            //             withdrawals = await WithdrawalModel.find({
-            //                 status: "approved",
-            //                 processedAt: {
-            //                     $gte: fromDate.toISOString(),
-            //                     $lte: toDate.toISOString(),
-            //                 },
-            //             })
-            //                 .populate({ path: "user", select: "email" })
-            //                 .sort({ updatedAt: -1 })
-            //                 .skip(LIMIT * (page - 1))
-            //                 .limit(LIMIT)
-            //                 .lean();
-            //             rows = await WithdrawalModel.countDocuments({
-            //                 status: "approved",
-            //             });
-            //         } else {
-            //             withdrawals =
-            //                 await adminService.findWithdrawalUsingSearchTerm({
-            //                     withdrawalStatus,
-            //                     page,
-            //                     search,
-            //                     fromDate,
-            //                     toDate,
-            //                     limit: LIMIT,
-            //                 });
-            //             rows =
-            //                 await adminService.findWithdrawalCountUsingSearchTerm(
-            //                     { withdrawalStatus, search }
-            //                 );
-            //         }
-            //         break;
-
-            //     case "rejected":
-            //         if (search === "") {
-            //             withdrawals = await WithdrawalModel.find({
-            //                 status: "rejected",
-            //                 processedAt: {
-            //                     $gte: fromDate.toISOString(),
-            //                     $lte: toDate.toISOString(),
-            //                 },
-            //             })
-            //                 .populate({ path: "user", select: "email" })
-            //                 .sort({ updatedAt: -1 })
-            //                 .skip(LIMIT * (page - 1))
-            //                 .limit(LIMIT)
-            //                 .lean();
-            //             rows = await WithdrawalModel.countDocuments({
-            //                 status: "rejected",
-            //             });
-            //         } else {
-            //             withdrawals =
-            //                 await adminService.findWithdrawalUsingSearchTerm({
-            //                     withdrawalStatus,
-            //                     page,
-            //                     search,
-            //                     fromDate,
-            //                     toDate,
-            //                     limit: LIMIT,
-            //                 });
-            //             rows =
-            //                 await adminService.findWithdrawalCountUsingSearchTerm(
-            //                     { withdrawalStatus, search }
-            //                 );
-            //         }
-            // }
-
-            return res.status(SuccessStatusCode.OPERATION_SUCCESSFUL).json({
-                withdrawals,
-                rows,
+            const withdrawals = await adminService.getWithdrawal({
                 withdrawalStatus,
+                page,
+                search,
+                fromDate,
+                toDate,
+                LIMIT,
+            });
+
+            return res.status(HTTPStatus.SUCCESS).json({
+                rows: withdrawals[0]?.totalCount[0]?.total || 0,
+                withdrawals: withdrawals[0]?.withdrawals || [],
+                status: withdrawalStatus,
             });
         } catch (error) {
             logger.error(`GET: withdrawals: ${error.message}`);
@@ -384,7 +255,7 @@ const AdminController = {
         try {
             const { referralUserId } = req.query;
 
-            const userInfo = await ReferralUserModelV1.findById(referralUserId)
+            const userInfo = await ReferralUserModel.findById(referralUserId)
                 .select(
                     `user wallet.balance wallet.pendingBalance 
                     wallet.pendingWithdrawal wallet.totalEarning`
@@ -435,9 +306,8 @@ const AdminController = {
                 );
             }
 
-            const withdrawalRequest = await findWithdrawalRequestById(
-                withdrawalID
-            );
+            const withdrawalRequest =
+                await adminService.findWithdrawalRequestById(withdrawalID);
 
             if (withdrawalRequest && withdrawalRequest.status === "pending") {
                 const message = await adminService.processWithdrawalRequest({
@@ -447,7 +317,7 @@ const AdminController = {
                     withdrawalRequest,
                 });
 
-                return res.status(SuccessStatusCode.OPERATION_SUCCESSFUL).json({
+                return res.status(HTTPStatus.SUCCESS).json({
                     success: true,
                     message,
                 });
@@ -475,8 +345,8 @@ const AdminController = {
 
             if (!objectIdValidation(referralUserID)) {
                 return next(
-                    createHttpError(ErrorStatusCode.VALIDATION_INVALID_FORMAT, {
-                        code: ErrorCodes.VALIDATION_INVALID_FORMAT,
+                    createHttpError(HTTPStatus.BAD_REQUEST, {
+                        code: "INVALIDATION_FORMAT",
                         message: "Query Invalidation Error!",
                     })
                 );
@@ -484,17 +354,17 @@ const AdminController = {
             const { error } = agentAccountStatus.validate(accountStatus);
             if (error) {
                 return next(
-                    createHttpError(ErrorStatusCode.VALIDATION_INVALID_FORMAT, {
-                        code: ErrorCodes.VALIDATION_INVALID_FORMAT,
+                    createHttpError(HTTPStatus.BAD_REQUEST, {
+                        code: "INVALIDATION_FORMAT",
                         message: "Query Invalidation Error!",
                     })
                 );
             }
 
             if (accountStatus === "deactivate") {
-                await deactivateAccount(referralUserID);
+                await adminService.deactivateAccount(referralUserID);
             } else if (accountStatus === "activate") {
-                await activateAccount(referralUserID);
+                await adminService.activateAccount(referralUserID);
             } else {
                 return next(
                     createHttpError(HTTPStatus.NOT_FOUND, {
@@ -897,8 +767,8 @@ const AdminController = {
 
             res.status(HTTPStatus.SUCCESS).json({
                 success: true,
-                message: "Password reset successfully!"
-            })
+                message: "Password reset successfully!",
+            });
         } catch (error) {
             logger.error(`PATCH: password reset ${error.message}`);
 

@@ -1,5 +1,5 @@
 import mongoose from "mongoose";
-import CounterModel from "./ReferralCounter.js";
+import CounterModel from "./CounterModel.js";
 
 const WithdrawalSchema = new mongoose.Schema(
     {

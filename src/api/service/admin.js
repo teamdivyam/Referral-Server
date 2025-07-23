@@ -1,9 +1,9 @@
 import mongoose from "mongoose";
+import ReferralUserModel from "../../db/models/ReferralUserModel.js";
+import ReferralWithdrawalModel from "../../db/models/ReferralWithdrawalModel.js";
+import ReferralEventModel from "../../db/models/ReferralEventModel.js";
+import UserModel from "../../db/models/UserModel.js";
 import logger from "../../logging/index.js";
-import ReferralUserModelV1 from "../../db/models/ReferralUserV1.js";
-import WithdrawalModel from "../../db/models/ReferralWithdrawalV1.js";
-import ReferralEventModel from "../../db/models/ReferralEventsV1.js";
-import UserModel from "../../db/models/user.js";
 
 const adminService = {
     getReferralUserWithPageLimitSearch: async (page, limit, search) => {
@@ -55,7 +55,7 @@ const adminService = {
                 ? { name: { $regex: search, $options: "i" } }
                 : {};
 
-            const result = await ReferralUserModelV1.countDocuments(query);
+            const result = await ReferralUserModel.countDocuments(query);
 
             return result;
         } catch (error) {
@@ -65,7 +65,7 @@ const adminService = {
 
     totalLatestWithdrawalRequest: async () => {
         try {
-            const result = await WithdrawalModel.countDocuments({
+            const result = await ReferralWithdrawalModel.countDocuments({
                 status: "pending",
             });
 
@@ -77,7 +77,7 @@ const adminService = {
 
     totalPaidToReferralUser: async () => {
         try {
-            const result = await WithdrawalModel.aggregate([
+            const result = await ReferralWithdrawalModel.aggregate([
                 { $match: { status: "approved" } },
                 {
                     $group: {
@@ -108,7 +108,7 @@ const adminService = {
 
     getReferralUserById: async (referralUserID) => {
         try {
-            const referralUser = await ReferralUserModelV1.findById(
+            const referralUser = await ReferralUserModel.findById(
                 referralUserID
             ).populate("user wallet.withdrawals referralEvents");
 
@@ -129,7 +129,7 @@ const adminService = {
 
         try {
             if (processType === "approved") {
-                await WithdrawalModel.findByIdAndUpdate(
+                await ReferralWithdrawalModel.findByIdAndUpdate(
                     withdrawalRequest._id,
                     {
                         $set: {
@@ -141,7 +141,7 @@ const adminService = {
                     },
                     { session }
                 );
-                await ReferralUserModelV1.findByIdAndUpdate(
+                await ReferralUserModel.findByIdAndUpdate(
                     withdrawalRequest.referral_user,
                     {
                         $inc: {
@@ -158,7 +158,7 @@ const adminService = {
 
                 return "Withdrawal request has been approved!";
             } else if (processType === "rejected") {
-                await WithdrawalModel.findByIdAndUpdate(
+                await ReferralWithdrawalModel.findByIdAndUpdate(
                     withdrawalRequest._id,
                     {
                         $set: {
@@ -169,7 +169,7 @@ const adminService = {
                     },
                     { session }
                 );
-                await ReferralUserModelV1.findByIdAndUpdate(
+                await ReferralUserModel.findByIdAndUpdate(
                     withdrawalRequest.referralUser,
                     {
                         $inc: {
@@ -208,7 +208,7 @@ const adminService = {
                 withdrawalStatus === "pending"
                     ? { createdAt: { $gte: fromDate, $lt: toDate } }
                     : { processedAt: { $gte: fromDate, $lt: toDate } };
-            const result = await WithdrawalModel.aggregate([
+            const result = await ReferralWithdrawalModel.aggregate([
                 {
                     $lookup: {
                         from: "users",
@@ -242,7 +242,7 @@ const adminService = {
         search,
     }) => {
         try {
-            const result = await WithdrawalModel.aggregate([
+            const result = await ReferralWithdrawalModel.aggregate([
                 {
                     $lookup: {
                         from: "users",
@@ -521,7 +521,7 @@ const adminService = {
             },
         });
 
-        const withdrawals = await WithdrawalModel.aggregate(withdrawalPipeline);
+        const withdrawals = await ReferralWithdrawalModel.aggregate(withdrawalPipeline);
 
         return withdrawals;
     },
@@ -579,7 +579,7 @@ const adminService = {
         searchFor,
         sortBy,
         sortDir,
-    }) => { 
+    }) => {
         try {
             const referralPipeline = [
                 {
@@ -730,7 +730,7 @@ const adminService = {
                 },
             });
 
-            const result = await ReferralUserModelV1.aggregate(
+            const result = await ReferralUserModel.aggregate(
                 referralPipeline
             );
 
@@ -739,42 +739,46 @@ const adminService = {
             throw error;
         }
     },
+
+    deactivateAccount: async (referralUserID) => {
+        try {
+            const a = await ReferralUserModel.findByIdAndUpdate(
+                referralUserID,
+                {
+                    $set: {
+                        accountStatus: "deactive",
+                    },
+                }
+            );
+
+            console.log("a:", a);
+        } catch (error) {
+            throw Error(error);
+        }
+    },
+
+    activateAccount: async (referralUserID) => {
+        try {
+            await ReferralUserModel.findByIdAndUpdate(referralUserID, {
+                $set: {
+                    accountStatus: "active",
+                },
+            });
+        } catch (error) {
+            throw Error(error);
+        }
+    },
+    findWithdrawalRequestById: async (withdrawalId) => {
+        try {
+            const withdrawalRequest = await ReferralWithdrawalModel.findById(
+                withdrawalId
+            );
+
+            return withdrawalRequest;
+        } catch (error) {
+            throw Error(error);
+        }
+    },
 };
 
 export default adminService;
-
-export const findWithdrawalRequestById = async (withdrawalId) => {
-    try {
-        const withdrawalRequest = await WithdrawalModel.findById(withdrawalId);
-
-        return withdrawalRequest;
-    } catch (error) {
-        throw Error(error);
-    }
-};
-
-export const deactivateAccount = async (referralUserID) => {
-    try {
-        const a = await ReferralUserModelV1.findByIdAndUpdate(referralUserID, {
-            $set: {
-                accountStatus: "deactive",
-            },
-        });
-
-        console.log("a:", a);
-    } catch (error) {
-        throw Error(error);
-    }
-};
-
-export const activateAccount = async (referralUserID) => {
-    try {
-        await ReferralUserModelV1.findByIdAndUpdate(referralUserID, {
-            $set: {
-                accountStatus: "active",
-            },
-        });
-    } catch (error) {
-        throw Error(error);
-    }
-};

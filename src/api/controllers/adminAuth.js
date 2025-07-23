@@ -1,18 +1,12 @@
 import createHttpError from "http-errors";
 import jwt from "jsonwebtoken";
+import AdminModel from "../../db/models/AdminModel.js";
+import SessionModel from "../../db/models/SessionModel.js";
 import logger from "../../logging/index.js";
-import AdminModel from "../../db/models/admin.js";
-import SessionModel from "../../db/models/Session.js";
-import { comparePassword, hashPasswordFn } from "../../utils/password.js";
-import { genAdminId } from "../../utils/genAdminId.js";
-import {
-    ACCESS_TOKEN_SECRET,
-    ErrorCodes,
-    ErrorStatusCode,
-    HTTPStatus,
-    SuccessStatusCode,
-} from "../../utils/constant.js";
+import { genAdminId } from "../../utils/generateAdminId.js";
+import { comparePassword, hashPasswordFn } from "../../utils/hashPassword.js";
 import { loginSchema, registerSchema } from "../validators/auth.js";
+import { ACCESS_TOKEN_SECRET, HTTPStatus } from "../../utils/constant.js";
 
 const AdminAuthController = {
     async login(req, res, next) {
@@ -26,7 +20,7 @@ const AdminAuthController = {
             });
             if (error) {
                 return next(
-                    createHttpError(HTTPStatus.BAD_REQUEST, {
+                    createHttpError(HTTPStatus.FORBIDDEN, {
                         code: "INVALID_FORMAT",
                         message: error.details[0].message,
                     })
@@ -35,9 +29,8 @@ const AdminAuthController = {
 
             const admin = await AdminModel.findOne({ email });
             if (!admin) {
-                console.error(error);
                 return next(
-                    createHttpError(HTTPStatus.UNAUTHORIZED, {
+                    createHttpError(HTTPStatus.FORBIDDEN, {
                         code: "INVALID_CREDENTIALS",
                         message: "Invalid credentials",
                     })
@@ -51,7 +44,7 @@ const AdminAuthController = {
             );
             if (!isPasswordMatched) {
                 return next(
-                    createHttpError(HTTPStatus.UNAUTHORIZED, {
+                    createHttpError(HTTPStatus.FORBIDDEN, {
                         code: "INVALID_CREDENTIALS",
                         message: "Invalid credentials",
                     })
@@ -59,20 +52,20 @@ const AdminAuthController = {
             }
 
             // Generate token and create session
-            const token = jwt.sign({ _id: admin._id }, ACCESS_TOKEN_SECRET, {
-                expiresIn: "7d",
-            });
-            const session = await SessionModel.create({
-                admin: admin._id,
-                device: {
-                    type: req.deviceInfo.type,
-                    os: req.deviceInfo.os,
-                    browser: req.deviceInfo.browser,
-                },
-                ipAddress: req.deviceInfo.ip,
-                userAgent: req.deviceInfo.userAgent,
-                token: token,
-            });
+                const token = jwt.sign({ _id: admin._id }, ACCESS_TOKEN_SECRET, {
+                    expiresIn: "7d",
+                });
+                const session = await SessionModel.create({
+                    admin: admin._id,
+                    device: {
+                        type: req.deviceInfo.type,
+                        os: req.deviceInfo.os,
+                        browser: req.deviceInfo.browser,
+                    },
+                    ipAddress: req.deviceInfo.ip,
+                    userAgent: req.deviceInfo.userAgent,
+                    token: token,
+                });
 
             res.status(HTTPStatus.SUCCESS).json({
                 success: true,
@@ -80,13 +73,13 @@ const AdminAuthController = {
             });
         } catch (error) {
             logger.error(
-                `Failed to register admin: ${error.message}, Error stack: ${error.stack}`
+                `POST: login ${error.message}, Error stack: ${error.stack}`
             );
 
-            return next(
-                createHttpError(ErrorStatusCode.SERVER_DATABASE_ERROR, {
-                    code: ErrorCodes.SERVER_DATABASE_ERROR,
-                    message: "Internal Server Error",
+            next(
+                createHttpError(HTTPStatus.SERVER_ERROR, {
+                    code: "SERVER_ERROR",
+                    message: error.message,
                 })
             );
         }
@@ -104,11 +97,10 @@ const AdminAuthController = {
                 confirmPassword,
             });
             if (error) {
-                logger.error("Error in register validation");
                 return next(
-                    createHttpError(ErrorStatusCode.VALIDATION_INVALID_FORMAT, {
-                        code: ErrorCodes.VALIDATION_INVALID_FORMAT,
-                        message: error.details[0].message,
+                    createHttpError(HTTPStatus.BAD_REQUEST, {
+                        code: "VALIDATION_FORMAT",
+                        message: "Invalidation Error",
                     })
                 );
             }
@@ -116,9 +108,9 @@ const AdminAuthController = {
             const admin = await AdminModel.findOne({ email });
             if (admin) {
                 return next(
-                    createHttpError(ErrorStatusCode.AUTH_INVALID_CREDENTIALS, {
-                        code: ErrorCodes.AUTH_INVALID_CREDENTIALS,
-                        message: "Admin already Exists!",
+                    createHttpError(HTTPStatus.SUCCESS, {
+                        code: "ALREADY_EXISTS",
+                        message: "Admin already exists!",
                     })
                 );
             }
@@ -134,19 +126,19 @@ const AdminAuthController = {
                 password: hashPassword,
             });
 
-            res.status(SuccessStatusCode.OPERATION_SUCCESSFUL).json({
+            res.status(HTTPStatus.SUCCESS).json({
                 success: true,
                 message: "New Admin Created Successfully",
             });
         } catch (error) {
             logger.error(
-                `Failed to register admin: ${error.message}, Error stack: ${error.stack}`
+                `POST: register ${error.message}, Error stack: ${error.stack}`
             );
 
-            return next(
-                createHttpError(ErrorStatusCode.SERVER_DATABASE_ERROR, {
-                    code: ErrorCodes.SERVER_DATABASE_ERROR,
-                    message: "Internal Server Error",
+            next(
+                createHttpError(HTTPStatus.SERVER_ERROR, {
+                    code: "SERVER_ERROR",
+                    message: error.message,
                 })
             );
         }
