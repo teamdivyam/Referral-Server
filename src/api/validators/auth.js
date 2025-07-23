@@ -37,6 +37,11 @@ export const registerSchema = joi.object({
         }),
 });
 
+export const officeUserAuth = joi.object();
+
+
+
+
 export const loginSchema = joi.object({
     email: joi
         .string()
