@@ -27,22 +27,14 @@ const AdminAuthController = {
                 );
             }
 
-            const admin = await AdminModel.findOne({ email });
-            if (!admin) {
-                return next(
-                    createHttpError(HTTPStatus.FORBIDDEN, {
-                        code: "INVALID_CREDENTIALS",
-                        message: "Invalid credentials",
-                    })
-                );
-            }
-
-            // Password matching
+            const admin = await AdminModel.findOne({ email }).select(
+                "+password"
+            );
             const isPasswordMatched = await comparePassword(
                 password,
                 admin.password
             );
-            if (!isPasswordMatched) {
+            if (!admin || !isPasswordMatched) {
                 return next(
                     createHttpError(HTTPStatus.FORBIDDEN, {
                         code: "INVALID_CREDENTIALS",
@@ -52,24 +44,33 @@ const AdminAuthController = {
             }
 
             // Generate token and create session
-                const token = jwt.sign({ _id: admin._id }, ACCESS_TOKEN_SECRET, {
-                    expiresIn: "7d",
-                });
-                const session = await SessionModel.create({
-                    admin: admin._id,
-                    device: {
-                        type: req.deviceInfo.type,
-                        os: req.deviceInfo.os,
-                        browser: req.deviceInfo.browser,
-                    },
-                    ipAddress: req.deviceInfo.ip,
-                    userAgent: req.deviceInfo.userAgent,
-                    token: token,
-                });
+            const token = jwt.sign(
+                { adminId: admin._id },
+                ACCESS_TOKEN_SECRET,
+                { expiresIn: "7d" }
+            );
+            const session = await SessionModel.create({
+                adminId: admin._id,
+                device: {
+                    type: req.deviceInfo.type,
+                    os: req.deviceInfo.os,
+                    browser: req.deviceInfo.browser,
+                },
+                ipAddress: req.deviceInfo.ip,
+                userAgent: req.deviceInfo.userAgent,
+                token: token,
+            });
 
             res.status(HTTPStatus.SUCCESS).json({
                 success: true,
                 token: session.token,
+                admin: {
+                    name: admin.name,
+                    email: admin.email,
+                    phone: admin.phone,
+                    role: admin.role,
+                    adminId: admin.adminId,
+                },
             });
         } catch (error) {
             logger.error(
@@ -108,7 +109,7 @@ const AdminAuthController = {
             const admin = await AdminModel.findOne({ email });
             if (admin) {
                 return next(
-                    createHttpError(HTTPStatus.SUCCESS, {
+                    createHttpError(HTTPStatus.FORBIDDEN, {
                         code: "ALREADY_EXISTS",
                         message: "Admin already exists!",
                     })

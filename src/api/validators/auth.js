@@ -9,8 +9,8 @@ export const registerSchema = joi.object({
             "string.email": "Email must be a valid email address",
             "any.required": "Email is required",
         }),
-    role: joi.string().valid("admin", "support").required().messages({
-        "any.only": "Role must be either admin or support",
+    role: joi.string().valid("super_admin", "admin").required().messages({
+        "any.only": "Role must be either super_admin or admin",
         "any.required": "Role is required",
     }),
     password: joi
@@ -36,11 +36,6 @@ export const registerSchema = joi.object({
             "any.required": "Confirm password is required",
         }),
 });
-
-export const officeUserAuth = joi.object();
-
-
-
 
 export const loginSchema = joi.object({
     email: joi

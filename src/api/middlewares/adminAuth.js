@@ -4,62 +4,66 @@ import SessionModel from "../../db/models/SessionModel.js";
 import logger from "../../logging/index.js";
 import {
     ACCESS_TOKEN_SECRET,
-    ErrorCodes,
-    ErrorStatusCode,
     HTTPStatus,
 } from "../../utils/constant.js";
 
 const adminAuth = async (req, res, next) => {
     try {
-        const authHeader = req.headers["authorization"];
-        const token = authHeader && authHeader.split(" ")[1];
-
-        if (!token)
+        // Retreive token from header
+        const authHeader = req.headers.authorization;
+        if (!authHeader?.startsWith("Bearer ")) {
             return next(
                 createHttpError(HTTPStatus.UNAUTHORIZED, {
-                    code: "AUTHENTICATION_REQUIRED",
-                    message: "Authentication Required",
+                    message: "Missing authorization token",
                 })
             );
+        }
+        const token = authHeader.split(" ")[1];
 
-        const decoded = jwt.verify(token, ACCESS_TOKEN_SECRET);
-        const isExpired = Date.now() >= decoded.exp * 1000;
+        // Check token is valid or expire
+        let decoded;
+        try {
+            decoded = jwt.verify(token, ACCESS_TOKEN_SECRET);
+        } catch (error) {
+            if (error.name === "TokenExpiredError") {
+                await SessionModel.updateOne({ token }, { active: false });
 
-        // const admin = await AdminModel.findById(decoded._id);
-        // req.admin = admin;
+                return next(
+                    createHttpError(HTTPStatus.UNAUTHORIZED, {
+                        message: "Token expired",
+                    })
+                );
+            }
+            return next(
+                createHttpError(HTTPStatus.UNAUTHORIZED, {
+                    message: "Invalid token",
+                })
+            );
+        }
 
         const session = await SessionModel.findOne({
             token,
+            adminId: decoded.adminId,
             isActive: true,
         });
 
         if (!session) {
             return next(
                 createHttpError(HTTPStatus.UNAUTHORIZED, {
-                    code: "INVALID_SESSION",
-                    message: "Invalid Session",
+                    message: "Session expired",
                 })
             );
         }
 
-        // Update session if token expired
-        if (isExpired && session.isActive) {
-            session.isActive = false;
-            session.expiresAt = new Date();
-            await session.save();
-
-            return next(
-                createHttpError(HTTPStatus.UNAUTHORIZED, {
-                    code: "INVALID_SESSION",
-                    message: "Invalid Session",
-                })
-            );
+        // Update last activity (only 1 / 10 requests)
+        if (Math.random() < 0.1) {
+            session.lastActivity = new Date();
         }
 
         req.sessionInfo = {
             id: session._id,
-            adminId: session.admin
-        }
+            adminId: session.adminId,
+        };
         session.lastActivity = Date.now();
         await session.save();
 
@@ -68,9 +72,9 @@ const adminAuth = async (req, res, next) => {
         logger.error(error.message);
 
         return next(
-            createHttpError(ErrorStatusCode.AUTH_INVALID_CREDENTIALS, {
-                code: ErrorCodes.AUTH_INVALID_CREDENTIALS,
-                message: "Invalid Credentials",
+            createHttpError(HTTPStatus.SERVER_ERROR, {
+                code: "SERVER_ERROR",
+                message: error.message,
             })
         );
     }

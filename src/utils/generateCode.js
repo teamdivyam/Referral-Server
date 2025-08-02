@@ -1,11 +1,18 @@
-export default function generateReferralCode() {
-    const characters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
-    let randomString = "";
+import { customAlphabet } from "nanoid";
+import { checkCodeInDatabase } from "../api/service/referral.js";
+const alphabet = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+const generateCode = customAlphabet(alphabet, 6);
 
-    for (let i = 0; i < 6; i++) {
-        const randomIndex = Math.floor(Math.random() * characters.length);
-        randomString += characters[randomIndex];
-    }
+async function createUniqueReferralCode(maxAttempts = 3) {
+  for (let i = 0; i < maxAttempts; i++) {
+    const code = generateCode();
+    const exists = await checkCodeInDatabase(code); // Your DB check function
     
-    return randomString;
+    if (!exists) {
+      return code;
+    }
+  }
+  throw new Error('Failed to generate unique code after retries');
 }
+
+export default createUniqueReferralCode;

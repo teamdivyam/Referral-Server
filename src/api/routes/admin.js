@@ -1,5 +1,6 @@
 import express from "express";
 import AdminController from "../controllers/admin.js";
+import isSuperAdmin from "../middlewares/isSuperAdmin.js";
 
 const AdminRouter = express.Router();
 
@@ -14,6 +15,10 @@ AdminRouter.get("/cron/status", AdminController.getCronJobStatus);
 AdminRouter.get("/referral-settings", AdminController.getReferralSettings);
 AdminRouter.get("/referral", AdminController.getReferral);
 AdminRouter.get("/sessions", AdminController.getSession);
+AdminRouter.get("/verify-admin", AdminController.verifyAdmin);
+AdminRouter.get("/get-admins", AdminController.getAdmins);
+AdminRouter.get("/verify-admin", AdminController.verifyAdmin);
+AdminRouter.post("/create-admin", isSuperAdmin, AdminController.createAdmin);
 AdminRouter.patch("/process-withdrawal-request/:processType/:withdrawalID", AdminController.processWithdrawalRequest);
 AdminRouter.patch("/change-account-status/:accountStatus/:referralUserID", AdminController.changeReferralUserAccountStatus);
 AdminRouter.patch("/cron/:state", AdminController.controlCronJob);
@@ -22,5 +27,6 @@ AdminRouter.patch("/update-referral-schedule", AdminController.updateReferralSch
 AdminRouter.patch("/sessions", AdminController.revokeSession);
 AdminRouter.patch("/logout", AdminController.logout);
 AdminRouter.patch("/reset-password", AdminController.resetPassword);
+AdminRouter.delete("/delete-admin/:adminId", AdminController.deleteAdmin);
 
 export default AdminRouter;

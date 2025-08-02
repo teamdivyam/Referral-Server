@@ -11,12 +11,15 @@ import { cronJobStatus, referralScript } from "../../../scripts/referral.js";
 import { comparePassword, hashPasswordFn } from "../../utils/hashPassword.js";
 import {
     agentAccountStatus,
+    newAdminSchema,
     objectIdValidation,
     passwordChangeSchema,
     processWithdrawalValidation,
     ValidateMultipleUserQuery,
     validatePageLimitSearch,
 } from "../validators/admin.js";
+import { registerSchema } from "../validators/auth.js";
+import { genAdminId } from "../../utils/generateAdminId.js";
 
 const AdminController = {
     getDashboardAnalytics: async (req, res, next) => {
@@ -639,10 +642,10 @@ const AdminController = {
     getSession: async (req, res, next) => {
         try {
             const sessions = await SessionModel.find({
-                admin: req.sessionInfo.adminId,
+                adminId: req.sessionInfo.adminId,
                 isActive: true,
             })
-                .select("device loginAt lastActivity")
+                .select("device loginAt lastActivity token")
                 .sort({ updatedAt: -1 });
 
             return res.status(HTTPStatus.SUCCESS).json({
@@ -773,6 +776,165 @@ const AdminController = {
             logger.error(`PATCH: password reset ${error.message}`);
 
             return next(
+                createHttpError(HTTPStatus.SERVER_ERROR, {
+                    code: "SERVER_ERROR",
+                    message: error.message,
+                })
+            );
+        }
+    },
+
+    editProfile: async (req, res, next) => {},
+
+    verifyAdmin: async (req, res, next) => {
+        try {
+            const admin = await AdminModel.findById(req.sessionInfo.adminId);
+
+            if (!admin) {
+                res.status(HTTPStatus.UNAUTHORIZED).json({
+                    success: false,
+                    message: "Unauthorized access",
+                })
+            }
+
+            res.status(HTTPStatus.SUCCESS).json({
+                success: true,
+                name: admin?.name,
+                email: admin.email,
+                phone: admin?.phone,
+                role: admin.role,
+                adminId: admin?.adminId,
+            });
+        } catch (error) {
+            logger.error(`GET: verify admin ${error.message}`);
+
+            return next(
+                createHttpError(HTTPStatus.SERVER_ERROR, {
+                    code: "SERVER_ERROR",
+                    message: error.message,
+                })
+            );
+        }
+    },
+
+    createAdmin: async (req, res, next) => {
+        try {
+            const { email, role, password, name } = req.body;
+
+            // Validation
+            const { value, error } = newAdminSchema.validate({
+                name,
+                email,
+                role,
+                password,
+            });
+            if (error) {
+                return next(
+                    createHttpError(HTTPStatus.BAD_REQUEST, {
+                        code: "VALIDATION_FORMAT",
+                        message: error.details[0].message,
+                    })
+                );
+            }
+
+            const admin = await AdminModel.findOne({ email });
+            if (admin) {
+                return next(
+                    createHttpError(HTTPStatus.FORBIDDEN, {
+                        code: "ALREADY_EXISTS",
+                        message: "Admin already exists!",
+                    })
+                );
+            }
+
+            // Hash the password and generate new admin id
+            const hashPassword = await hashPasswordFn(password);
+            const adminId = genAdminId();
+
+            await AdminModel.insertOne({
+                name: value.name,
+                email: value.email,
+                role: value.role,
+                adminId: adminId,
+                password: hashPassword,
+            });
+
+            res.status(HTTPStatus.SUCCESS).json({
+                success: true,
+                message: "New Admin Created Successfully",
+            });
+        } catch (error) {
+            logger.error(
+                `POST: register ${error.message}, Error stack: ${error.stack}`
+            );
+
+            next(
+                createHttpError(HTTPStatus.SERVER_ERROR, {
+                    code: "SERVER_ERROR",
+                    message: error.message,
+                })
+            );
+        }
+    },
+
+    getAdmins: async (req, res, next) => {
+        try {
+            const admins = await AdminModel.find().select(
+                "name email role adminId createdAt"
+            );
+            const admin = await AdminModel.aggregate([
+                {
+                    $lookup: {
+                        from: "referraladminsessions",
+                        localField: "_id",
+                        foreignField: "adminId",
+                        as: "sessions",
+                    },
+                },
+                { $unwind: "$sessions" },
+            ]);
+
+            res.status(HTTPStatus.SUCCESS).json({
+                admins: admins,
+                admin,
+            });
+        } catch (error) {
+            logger.error(
+                `GET: admins ${error.message}, Error stack: ${error.stack}`
+            );
+
+            next(
+                createHttpError(HTTPStatus.SERVER_ERROR, {
+                    code: "SERVER_ERROR",
+                    message: error.message,
+                })
+            );
+        }
+    },
+    
+    deleteAdmin: async (req, res, next) => {
+        try {
+            const { adminId } = req.params;
+
+            const deletedAdmin = await AdminModel.findByIdAndDelete(adminId);
+
+            if (!deletedAdmin) {
+                return res.status(HTTPStatus.SUCCESS).json({
+                    success: false,
+                    message: "Cannot delete admin",
+                });
+            }
+            
+            return res.status(HTTPStatus.SUCCESS).json({
+                success: true,
+                message: "Admin deleted successfully",
+            });
+        } catch (error) {
+            logger.error(
+                `DELETE: admins ${error.message}, Error stack: ${error.stack}`
+            );
+
+            next(
                 createHttpError(HTTPStatus.SERVER_ERROR, {
                     code: "SERVER_ERROR",
                     message: error.message,

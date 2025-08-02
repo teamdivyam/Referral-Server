@@ -2,7 +2,7 @@ import mongoose from "mongoose";
 
 const SessionSchema = new mongoose.Schema(
     {
-        admin: {
+        adminId: {
             type: mongoose.Schema.Types.ObjectId,
             ref: "admin",
             required: true,

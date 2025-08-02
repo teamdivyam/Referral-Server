@@ -5,7 +5,6 @@ import ReferralEventModel from "../../db/models/ReferralEventModel.js";
 import UserModel from "../../db/models/UserModel.js";
 import ReferralWithdrawalModel from "../../db/models/ReferralWithdrawalModel.js";
 import ReferralRuleModel from "../../db/models/ReferralRulesModel.js";
-import generateReferralCode from "../../utils/generateCode.js";
 import logger from "../../logging/index.js";
 import {
     ErrorCodes,
@@ -14,26 +13,35 @@ import {
     SuccessStatusCode,
 } from "../../utils/constant.js";
 import {
+    addBankAccountSchema,
     AmountValidation,
-    BankValidation,
-    objectIdValidation,
+    isUserIdValidate,
 } from "../validators/referral.js";
+import createUniqueReferralCode from "../../utils/generateCode.js";
 
 const referralController = {
     createReferralUser: async (req, res, next) => {
         try {
             const { userID } = req.params;
 
-            const user = await UserModel.findById(userID);
+            // Validation
+            if (!isUserIdValidate(userID)) {
+                return next(createHttpError(HTTPStatus.BAD_REQUEST, {
+                    message: "Invalid user id"
+                }))
+            }
 
+            // Check if user exists
+            const user = await UserModel.findById(userID);
             if (!user) {
                 return next(
-                    createHttpError(HTTPStatus.BAD_REQUEST, {
-                        code: "VALIDATION_FORMAT",
-                        message: "User ID is invalid",
+                    createHttpError(HTTPStatus.NOT_FOUND, {
+                        message: "User not found",
                     })
                 );
-            }
+            }  
+
+            // Check if user already had referral code
             if (user.refer.isReferrer) {
                 return next(
                     createHttpError(HTTPStatus.FORBIDDEN, {
@@ -42,8 +50,8 @@ const referralController = {
                     })
                 );
             }
-
-            const referralCode = generateReferralCode();
+            
+            const referralCode = await createUniqueReferralCode();
 
             const newReferralUser = await ReferralUserModel.insertOne({
                 user: userID,
@@ -76,7 +84,7 @@ const referralController = {
         try {
             const { userID } = req.params;
 
-            if (!objectIdValidation(userID)) {
+            if (!isUserIdValidate(userID)) {
                 return next(
                     createHttpError(HTTPStatus.BAD_REQUEST, {
                         code: "VALIDATION_FORMAT",
@@ -120,7 +128,7 @@ const referralController = {
         try {
             const { userID } = req.params;
 
-            if (!objectIdValidation(userID)) {
+            if (!isUserIdValidate(userID)) {
                 return next(
                     createHttpError(HTTPStatus.BAD_REQUEST, {
                         code: "VALIDATION_FORMAT",
@@ -266,7 +274,7 @@ const referralController = {
             const { amount = null } = req.body;
 
             const { error } = AmountValidation.validate(amount);
-            if (error || !objectIdValidation(userID)) {
+            if (error || !isUserIdValidate(userID)) {
                 return next(
                     createHttpError(HTTPStatus.BAD_REQUEST, {
                         code: "INVALIDATE_FORMAT",
@@ -394,7 +402,7 @@ const referralController = {
             const { bankName, accountHolderName, accountNumber, codeIFSC } =
                 req.body;
 
-            const { error } = BankValidation.validate(req.body);
+            const { error } = addBankAccountSchema.validate(req.body);
             if (error) {
                 return next(
                     createHttpError(HTTPStatus.BAD_REQUEST, {

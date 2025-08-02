@@ -52,6 +52,7 @@ const ReferralUserSchemaV1 = new mongoose.Schema(
             type: String,
             unique: true,
             required: true,
+            index: true,
         },
         referralEvents: {
             type: [mongoose.Schema.Types.ObjectId],
