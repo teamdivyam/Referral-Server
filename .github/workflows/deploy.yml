@@ -1,3 +1,89 @@
+# name: Build and Deploy to EC2
+
+# on:
+#   push:
+#     branches: [main]
+
+# env:
+#   DOCKER_IMAGE: adeshsingh15/referral:latest # Your Docker Hub image
+
+# jobs:
+#   build-and-push:
+#     runs-on: ubuntu-latest
+#     steps:
+#       - name: Checkout code
+#         uses: actions/checkout@v3
+
+#       - name: Set up Docker Buildx
+#         uses: docker/setup-buildx-action@v3
+
+#       - name: Login to Docker Hub
+#         uses: docker/login-action@v3
+#         with:
+#           username: ${{ secrets.DOCKER_HUB_USERNAME }}
+#           password: ${{ secrets.DOCKER_HUB_TOKEN }}
+
+#       - name: Build and Push Docker Image for linux/amd64
+#         uses: docker/build-push-action@v5
+#         with:
+#           context: .
+#           file: ./Dockerfile
+#           platforms: linux/amd64
+#           push: true
+#           tags: ${{ env.DOCKER_IMAGE }}
+
+  
+
+#   deploy:
+#     runs-on: ubuntu-latest
+#     needs: build-and-push
+#     steps:
+#       - name: Deploy to EC2 via SSH
+#         env:
+#           PRIVATE_KEY: ${{ secrets.EC2_PRIVATE_KEY }}
+#           HOST: ${{ secrets.EC2_HOST }}
+#           USER: ${{ secrets.EC2_USER }}
+#         run: |
+#           echo "$PRIVATE_KEY" > key.pem
+#           chmod 600 key.pem
+
+#           ssh -T -o StrictHostKeyChecking=no -i key.pem ${USER}@${HOST} << EOF
+#             echo "✅ Connected to EC2"
+
+#             # Ensure Docker is installed
+#             if ! command -v docker &> /dev/null; then
+#               echo 'Installing Docker...'
+#               sudo yum update -y
+#               sudo yum install docker -y
+#               sudo service docker start
+#               sudo usermod -a -G docker $USER
+#               sudo chkconfig docker on
+#             else
+#               echo 'Docker is already installed.'
+#               sudo service docker start
+#             fi
+
+#             # Stop and remove previous container (if any)
+#             docker stop referral || true
+#             docker rm referral || true
+
+#             # Pull the latest Docker image (with debug output)
+#             echo "Pulling latest image: $DOCKER_IMAGE"
+#             docker pull '$DOCKER_IMAGE' || { echo 'Image pull failed'; exit 1; }
+
+#             # Run the new container
+#             docker run -d \
+#               --name referral \
+#               --restart unless-stopped \
+#               --env-file /home/${USER}/prod.env \
+#               -p 3000:3000 \
+#               '$DOCKER_IMAGE' || { echo 'Container failed to start'; exit 1; }
+
+#             # Confirm container is running
+#             sleep 10
+#             docker ps | grep referral || { echo 'Container not running'; exit 1; }
+#           EOF
+
 name: Build and Deploy to EC2
 
 on:
@@ -5,7 +91,7 @@ on:
     branches: [main]
 
 env:
-  DOCKER_IMAGE: adeshsingh15/referral:latest # Your Docker Hub image
+  DOCKER_IMAGE: divyamdev/referral-server:latest # Your Docker Hub image
 
 jobs:
   build-and-push:
